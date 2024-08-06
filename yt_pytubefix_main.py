@@ -24,6 +24,7 @@ import yaml
 from PyQt5 import QtCore, QtGui, QtWidgets
 import class_File_Dialogs
 import class_tableWidgetFunctions
+import class_pytubefix_use
 import yt_pytubefix_gui
 import requests
 
@@ -74,6 +75,8 @@ class Ui_MainWindow_yt(yt_pytubefix_gui.Ui_MainWindow):
             self.download_path = self.app_path
         self.url_struct = {}
         self.url_id_counter = 0
+        self.ongoing_download_url = None
+        self.ongoing_download_title = None
  
     def setupUi2(self, MainWindow):   
         # Add objects by code here additional to objects in GUI_PostProcessing
@@ -104,13 +107,54 @@ class Ui_MainWindow_yt(yt_pytubefix_gui.Ui_MainWindow):
         
         #self.tvf.Expand_to_Depth(1)      
         #self.tvf.set_Icons(self.icons_dict)    
+
+        #--------------use_pytubefix
+        self.ptf = class_pytubefix_use.use_pytubefix()
+        self.ptf.to_log[str].connect(self.pytubefix_log)
+        self.ptf.download_start[str,str].connect(self.pytubefix_download_start)
+        self.ptf.download_end[str,str].connect(self.pytubefix_download_end)
+        self.ptf.on_progress[list].connect(self.pytubefix_download_progress)
+
         #-----------Splitter 
         #self.set_splitter_pos(400,1/3) #initial position
         #--------------
         self.set_path_labels()
         aDialog.set_default_dir(self.app_path)
         self.Connect_Actions()
-        
+    
+    def pytubefix_download_progress(self, progress_list: list):
+        #url = self.ongoing_download_url 
+        title = self.ongoing_download_title 
+        [bytes_received,filesize]=progress_list
+        per=round(bytes_received/filesize*100,2)
+        log.info(f"Downloaded {per}% for {title}")
+
+    def pytubefix_download_start(self,url: str,title:str):
+        self.ongoing_download_url = url
+        self.ongoing_download_title = title
+        log.info(f"Download started for {title}")
+
+    def pytubefix_download_end(self,url: str,title:str):
+        if url == self.ongoing_download_url:
+            self.ongoing_download_url = None
+            self.ongoing_download_title = None
+        log.info(f"Download finished for {title}")
+
+    def pytubefix_log(self,log_msg):
+        """
+        Logs from pytubefix
+        """
+        if 'error' in log_msg.lower():
+            if self.ongoing_download_title:
+                log.error(f'Error while downloading {self.ongoing_download_title}')
+                self.ongoing_download_title = None
+                self.ongoing_download_url = None
+            log.error(log_msg)
+        elif 'warning' in log_msg.lower():
+            log.warning(log_msg)
+        else:
+            log.info(log_msg)
+
     def get_general_config(self):
         """
         Returns the configuration set in yml file 
@@ -161,12 +205,18 @@ class Ui_MainWindow_yt(yt_pytubefix_gui.Ui_MainWindow):
         """
         On pressed url button add to list
         """
+        #fast regex check
+        is_valid, _ = self.ptf.is_yt_valid_url(self.lineEdit_url.text())
+        #slow html check
+        if not is_valid:
+            return
         try:
             urlexists = self.does_url_exist(self.lineEdit_url.text())
         except:
             urlexists = False
         if urlexists:
-            self.add_item_to_url_struct()
+            # passed checks
+            self.add_item_to_url_struct(self.lineEdit_url.text())
     
     def get_id_list(self):
         """
@@ -196,20 +246,24 @@ class Ui_MainWindow_yt(yt_pytubefix_gui.Ui_MainWindow):
             copydid=desired_id+str(iii)
         return copydid
 
-    def add_item_to_url_struct(self):
+    def add_item_to_url_struct(self,url: str):
         """
         Adds item to list
         """
-        print("3"*333)
-        print(self.twf.Data_Struct)
-        newId=self.get_unique_id('URL'+str(self.url_id_counter))
-        self.url_struct.update({
-        newId:{"url":self.lineEdit_url.text(),
-                    "Name":" ",
-                    "Size":0,
-                    },
-        })
-        self.url_id_counter = self.url_id_counter + 1
+        vid_list, vid_list_url =self.ptf.get_any_yt_videos_list(url)
+        for vid_title, vid_url in zip(vid_list, vid_list_url):
+            newId=self.get_unique_id('URL'+str(self.url_id_counter))
+            self.url_struct.update({
+            newId:{
+                "Index": self.url_id_counter,
+                "Title":vid_title,
+                "URL": vid_url,
+                "DL Enable": True,
+                "MP3": False,
+                "DL Button": "",
+                },
+            })
+            self.url_id_counter = self.url_id_counter + 1
         
         self.twf.Data_Struct=self.url_struct
         self.twf.set_show_dict()

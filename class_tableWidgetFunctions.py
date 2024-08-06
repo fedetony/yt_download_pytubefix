@@ -1188,24 +1188,14 @@ class tableWidget_functions(QtWidgets.QWidget):
         return alist
     
     def is_bool(self,var):
-        if type(var)==type(True):
-            return True            
-        else:
-            return False
-
+        return isinstance(var,bool)
 
     def is_dict(self,var):
-        if type(var)==dict:
-            return True
-        else:
-            return False
+        return isinstance(var,dict)
 
     def is_list(self,var):
-        if type(var)==list:
-            return True
-        else:
-            return False
-    
+        return isinstance(var,list)
+        
     def get_tracked_value_in_struct(self,track,Data_Struct):
         trlist=track.copy()
         selected={}
