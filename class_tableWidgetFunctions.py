@@ -1,3 +1,8 @@
+
+"""
+Class to handle a QTableWidget Object
+Programmed by F.Garcia
+"""
 import logging
 from multiprocessing.sharedctypes import Value
 from xmlrpc.client import boolean
@@ -21,21 +26,97 @@ logging.getLogger('').addHandler(twconsole)
 
 
 class tableWidget_functions(QtWidgets.QWidget):   
+    """
+    Class to handle a QTableWidget Object
+    Receives: 
+    Data_Struct: dictionary of with structure:
+    Basic Data_Struct is a Show_Struct:
+    Show_Struct= {
+    "row1":{"Col1":ValueCol1,"Col2":ValueCol2},
+    "row2":{"Col1":ValueCol1,"Col3":ValueCol3}, # No need to have all Columns
+    ....
+    }
+    Data_Struct_mask must have same structure as the Show_struct, 
+    It contains the restrictions of each column or item.
+    Notes: 
+    - row,col names/keys must match to apply restriction
+    - if no mask no restriction.
+    Data_Struct_mask:{ # Same as show_Struct
+    "__any__":{ #For all rows
+            "Col1":{
+            '__m__':"desired_restriction1",'__mv__':restriction_value1,...
+            ,'__m__N':"desired_restrictionN",'__mv__N':restriction_valueN}
+            }
+            "Col2":{
+            '__m__':"desired_restriction1",'__mv__':restriction_value1,...
+            ,'__m__N':"desired_restrictionN",'__mv__N':restriction_valueN}
+            }
+            ...
+        }
+    "row3": :{ #For row 3 only
+            
+            "Col3":{
+            '__m__':"desired_restriction1",'__mv__':restriction_value1,...
+            ,'__m__N':"desired_restrictionN",'__mv__N':restriction_valueN}
+            }
+            ...
+        } 
+    }
+    If the show_struct is contained in a data_struct, pass the Reftrack
+    Data_Struct={
+    Item1:{
+            "Whatever":"",
+            ...
+            "Data_you_want_to_show": Show_Struct
+            }
+    ...
+    
+    }
+    Reftrack references the Data_struct to the place you want to show the info and allows to read/write values in the 
+    correspondent part of the structure, but just showing the Data_you_want_to_show in the TableWidget
+    Reftrack=["Item1" "Data_you_want_to_show"] 
+    
+    Data_ID=Is the root item of your Data_struct.
+
+    If Data_struct is a list like ->
+    [Data_Struct1,Data_Struct2...]
+    Each Data_structX must contain an unique 'ID' key.
+    Data_Struct1={
+    'ID': "Id1"
+    Item1:{
+            "Whatever":"",
+            ...
+            "Data_you_want_to_show": Show_Struct
+            }
+    ...
+    Then 
+    Data_ID= "Id1"
+    and
+    Reftrack=["Id1" "Item1" "Data_you_want_to_show"] 
+    """
+
     data_change=QtCore.pyqtSignal(list,str,str,str)   
     item_button_clicked=QtCore.pyqtSignal(list)  
     item_combobox_currentIndexChanged =QtCore.pyqtSignal(int,str,list)
     item_doubleclicked=QtCore.pyqtSignal(list)  
     item_checkbox_checked=QtCore.pyqtSignal(bool,list)
 
-    def Signal_Data_Change(self,track,val,valtype,subtype):
-        #log.info('cTV Emmiting: {} {} {} {}'.format(track,val,valtype,subtype))
+    def Signal_Data_Change(self,track:list[str],val: any,valtype:str,subtype:str):
+        """Emmits data has changed and new value to parent
+
+        Args:
+            track (list[str]): Tracking list with path to follow in dictionary structure
+            val (any): value on item
+            valtype (str): string with value type
+            subtype (str): if list inner value type
+        """
         self.data_change.emit(track,val,valtype,subtype)
     
     def doubleclick_on_item(self,itm):
         track=self.track_key_Table(itm)
         self.item_doubleclicked.emit(track)
 
-    def __init__(self,tablewidgetobj,Data_Struct,Data_Struct_mask,Data_ID=None,Reftrack=[], *args, **kwargs):   
+    def __init__(self,tablewidgetobj,Data_Struct: dict |list,Data_Struct_mask: dict,Data_ID:str=None,Reftrack:list[str]=None, *args, **kwargs):   
         super(tableWidget_functions, self).__init__(*args, **kwargs)             
         self.__name__="tableWidget Functions"
         if isinstance(tablewidgetobj,QtWidgets.QTableWidget):
@@ -46,7 +127,10 @@ class tableWidget_functions(QtWidgets.QWidget):
         self.Data_Struct_mask=Data_Struct_mask
         self._last_value_selected=None
         self.Data_ID=Data_ID
-        self.Reftrack=Reftrack
+        if Reftrack:
+            self.Reftrack=Reftrack
+        else:
+            self.Reftrack=[]
         #displayed on tableWidget
         self.set_show_dict()
         # uses show dict
@@ -69,7 +153,15 @@ class tableWidget_functions(QtWidgets.QWidget):
          
         
         
-    def get_standard_dict_model(self,fieldname='Datafield_1'):
+    def get_standard_dict_model(self,fieldname: str ='Datafield_1') -> dict:
+        """Make a typical show dictionay
+
+        Args:
+            fieldname (str, optional): First row content value. Defaults to 'Datafield_1'.
+
+        Returns:
+            dict: Contains 'Value','Units','Info','Type' example columns
+        """
         return {fieldname:{'Value':'','Units':'','Info':'','Type':str(type(''))}}
     
     def set_Restore_Columns(self,colkey):
@@ -85,21 +177,21 @@ class tableWidget_functions(QtWidgets.QWidget):
         else:
             showdict=self.get_tracked_value_in_struct(self.Reftrack,self.Data_Struct)            
             #print('From else showdict:\n',showdict)      
-        if self.is_dict(showdict)==True:
+        if isinstance(showdict,dict):
             self.Show_dict=showdict
         else:
             self.Show_dict=self.Data_Struct
 
 
     def get_types_struct(self,dict_struct):         
-        if self.is_list(dict_struct)==True:
+        if isinstance(dict_struct,list):
             type_Struct=[]      
             for aData in dict_struct:
                 type_Struct.append(self.get_types_struct(aData))                                
-        elif self.is_dict(dict_struct)==True:
+        elif isinstance(dict_struct,dict):
             type_Struct={}
             for aData in dict_struct:    
-                if self.is_dict(dict_struct[aData])==True:  
+                if isinstance(dict_struct[aData],dict):  
                     nts=self.get_types_struct(dict_struct[aData])
                     type_Struct.update({aData:nts})
                 else:
@@ -124,13 +216,13 @@ class tableWidget_functions(QtWidgets.QWidget):
                 trackc.pop(0)
         return trackc   
 
-    def get_dictionary_from_structlist(self,Data_Struct,Data_ID=None):        
-        if self.is_list(Data_Struct)==True:
+    def get_dictionary_from_structlist(self,Data_Struct,Data_ID=None) -> dict:        
+        if isinstance(Data_Struct,list):
             for adict in Data_Struct:
-                if adict['ID']==Data_ID:
+                if adict['ID'] == Data_ID:
                     #print('get my dict Found ID',Data_ID)
                     return adict.copy()
-        elif self.is_dict(Data_Struct)==True or Data_ID==None:
+        elif isinstance(Data_Struct,dict) or Data_ID==None:
             #print('get my dict nochange is dict',Data_ID)
             return Data_Struct.copy()
         else:
@@ -539,7 +631,7 @@ class tableWidget_functions(QtWidgets.QWidget):
         refreshtableWidget=False
         trlist=track.copy()
         selected={}  
-        if self.is_list(dict_struct)==True:      
+        if isinstance(dict_struct,list):      
             for aData in dict_struct:
                 if aData['ID']==trlist[0]:
                     trlist.pop(0)
@@ -562,7 +654,7 @@ class tableWidget_functions(QtWidgets.QWidget):
                             trackstruct=track
                             self.Signal_Data_Change(trackstruct,str(val),str(type(val)),subtype)  #refresh on main
                         break                
-        elif self.is_dict(dict_struct)==True:
+        elif isinstance(dict_struct,dict):
             selected=dict_struct#.copy() #select dictionary
             while len(trlist)>1:
                 try:
@@ -582,7 +674,7 @@ class tableWidget_functions(QtWidgets.QWidget):
         return refreshtableWidget,dict_struct            
     
     def get_track_struct_from_dict_track(self,dict_,track):
-        if self.is_dict(dict_)==True:
+        if isinstance(dict_,dict):
             if self.Data_ID!=None:
                 endtrack=[self.Data_ID].append(track) 
                 #print ('ini_track->',track,'endtrack->',endtrack)
@@ -662,9 +754,9 @@ class tableWidget_functions(QtWidgets.QWidget):
         return IDlist
 
     def str_to_bool_or_none(self,astr):
-        if self.is_bool(astr)==True:
+        if isinstance(astr,bool):
             return astr
-        elif type(astr)==type(''):
+        elif isinstance(astr,str):
             if astr.lower() in ['true']:   
                 return True
             elif astr.lower() in ['false']:   
@@ -675,7 +767,7 @@ class tableWidget_functions(QtWidgets.QWidget):
             return None
 
     def str_to_bool(self,val):
-        if self.is_bool(val)==True:
+        if isinstance(val,bool):
             return val
         else:
             if val.lower() in ['true']:   
@@ -741,7 +833,7 @@ class tableWidget_functions(QtWidgets.QWidget):
                 isok=False
         elif restriction=='is_list_item_limited_selection':                        
             try:
-                if self.is_list(value)==False:
+                if not isinstance(value,list):
                     alist=self.str_to_list(value)
                 else:
                     alist=value
@@ -753,7 +845,7 @@ class tableWidget_functions(QtWidgets.QWidget):
                 isok=False
         elif restriction=='is_list_item_format':                        
             try:
-                if self.is_list(value)==False:
+                if not isinstance(value,list):
                     alist=self.str_to_list(value)
                 else:
                     alist=value
@@ -770,7 +862,7 @@ class tableWidget_functions(QtWidgets.QWidget):
                 isok=False
         elif restriction=='is_list_item_value_LT':
             try:
-                if self.is_list(value)==False:
+                if not isinstance(value,list):
                     alist=self.str_to_list(value)
                 else:
                     alist=value
@@ -783,7 +875,7 @@ class tableWidget_functions(QtWidgets.QWidget):
                 isok=False            
         elif restriction=='is_list_item_value_GT':
             try:
-                if self.is_list(value)==False:
+                if not isinstance(value,list):
                     alist=self.str_to_list(value)
                 else:
                     alist=value
@@ -796,7 +888,7 @@ class tableWidget_functions(QtWidgets.QWidget):
                 isok=False            
         elif restriction=='is_list_item_value_EQ':
             try:
-                if self.is_list(value)==False:
+                if not isinstance(value,list):
                     alist=self.str_to_list(value)
                 else:
                     alist=value
@@ -809,7 +901,7 @@ class tableWidget_functions(QtWidgets.QWidget):
                 isok=False
         elif restriction=='is_list_item_value_LTEQ':
             try:
-                if self.is_list(value)==False:
+                if not isinstance(value,list):
                     alist=self.str_to_list(value)
                 else:
                     alist=value
@@ -822,7 +914,7 @@ class tableWidget_functions(QtWidgets.QWidget):
                 isok=False
         elif restriction=='is_list_item_value_GTEQ':
             try:
-                if self.is_list(value)==False:
+                if not isinstance(value,list):
                     alist=self.str_to_list(value)
                 else:
                     alist=value
@@ -835,7 +927,7 @@ class tableWidget_functions(QtWidgets.QWidget):
                 isok=False
         elif restriction=='is_list_item_value_NEQ':
             try:
-                if self.is_list(value)==False:
+                if not isinstance(value,list):
                     alist=self.str_to_list(value)
                 else:
                     alist=value
@@ -982,13 +1074,13 @@ class tableWidget_functions(QtWidgets.QWidget):
         return self.check_type(the_type,val,isok)
 
     def check_type(self,the_type,val,isok=True):
-        if the_type==str(type(0)):
+        if the_type==str(int):
             try:
                 res=int(val)
             except:
                 isok=False
                 pass
-        elif the_type==str(type(True)):
+        elif the_type==str(bool):
             try:
                 ans=self.str_to_bool_or_none(val)
                 if ans not in [True,False]:
@@ -996,29 +1088,29 @@ class tableWidget_functions(QtWidgets.QWidget):
             except:
                 isok=False
                 pass
-        elif the_type==str(type(0.1)):
+        elif the_type==str(float):
             try:
                 res=float(val)
             except:
                 isok=False
                 pass
-        elif the_type==str(type('str')):
+        elif the_type==str(str):
             try:
                 res=str(val)
             except:
                 isok=False
                 pass
-        elif the_type==str(type({})):
+        elif the_type==str(dict):
             isok=True
-        elif the_type==str(type([])):
+        elif the_type==str(list):
             try:
-                isok=self.is_list(self.str_to_list(val))                          
+                isok = isinstance(self.str_to_list(val),list)                          
             except:
                 isok=False
                 pass        
         return isok
 
-    def str_to_list(self,astr):        
+    def str_to_list(self,astr:str) -> list:       
         try:         
             rema=re.search('^\[(.+,)*(.+)?\]$',astr)              
             if rema.group()!=None:
@@ -1047,7 +1139,7 @@ class tableWidget_functions(QtWidgets.QWidget):
     def Data_importData_to_Table(self,data, modelobj,tablewidgetobj):
         if isinstance(tablewidgetobj,QtWidgets.QTableWidget):
             tablewidgetobj.setRowCount(0)        
-            if self.is_list(data):
+            if isinstance(data,list):
                 for adict in data:            
                     newdict={}
                     try:
@@ -1056,7 +1148,7 @@ class tableWidget_functions(QtWidgets.QWidget):
                         pass
                     self.dict_to_Table(newdict,modelobj,tablewidgetobj,myparent=None)
                 return newdict
-            elif self.is_dict(data):            
+            elif isinstance(data,dict):            
                 self.dict_to_Table(data,modelobj,tablewidgetobj,myparent='Data')  
         else:
             raise Exception('tableWidget object is Not a {} object'.format(type(QtWidgets.QTableWidget)))      
@@ -1064,7 +1156,7 @@ class tableWidget_functions(QtWidgets.QWidget):
     
     def Create_Data_Model_tableWidget(self,tableWidgetparent,emitsignal=False):
         if isinstance(tableWidgetparent,QtWidgets.QTableWidget):                    
-            if self.is_dict(self.Show_dict)==True:
+            if isinstance(self.Show_dict,dict)==True:
                 data_dict=self.Show_dict
                 colcount=len(data_dict)
             else:
@@ -1129,7 +1221,7 @@ class tableWidget_functions(QtWidgets.QWidget):
     def dict_to_Table(self,adict,modelobj,tablewidgetobj,myparent=None): 
         #print('Entered dict to table {}'.format(adict))     
         if isinstance(tablewidgetobj,QtWidgets.QTableWidget):                    
-            if self.is_dict(adict)==True:                                         
+            if isinstance(adict,dict):                                         
                 key_list=self.get_dict_key_list(adict)
                 if myparent==None:                                                            
                         parent = 'Data'                             
@@ -1165,7 +1257,7 @@ class tableWidget_functions(QtWidgets.QWidget):
                         tablewidgetobj.setItem(rowpos,colpos,at_item)
                         tablewidgetobj.resizeColumnToContents(colpos)
                         if self.str_to_bool_or_none(val_) in [True,False]:                                                        
-                            if self.is_bool(val_)==True:                                   
+                            if isinstance(val_,bool):                                   
                                 self.set_checkbox_value(at_item)                                                          
                             #Add tooltip text                                                                                              
                         self.set_tooltiptext(at_item)                                                         
@@ -1181,27 +1273,26 @@ class tableWidget_functions(QtWidgets.QWidget):
         else:
             raise Exception('tableWidget object is Not a {} object'.format(type(QtWidgets.QTableWidget)))
 
-    def get_dict_key_list(self,dict):
+    def get_dict_key_list(self,a_dict: dict) -> list:
+        """Generates a list of the keys in the dictionary
+
+        Args:
+            a_dict (dict): dictionary to analyze
+
+        Returns:
+            list: List with keys
+        """
         alist=[]
-        for key in dict:
+        for key in a_dict:
             alist.append(key)
         return alist
-    
-    def is_bool(self,var):
-        return isinstance(var,bool)
-
-    def is_dict(self,var):
-        return isinstance(var,dict)
-
-    def is_list(self,var):
-        return isinstance(var,list)
         
     def get_tracked_value_in_struct(self,track,Data_Struct):
         trlist=track.copy()
         selected={}
         if len(track)==0:
             return None
-        if self.is_list(Data_Struct)==True:
+        if isinstance(Data_Struct,list):
             for aData in Data_Struct:
                 if aData['ID']==trlist[0]:
                     trlist.pop(0)
@@ -1213,7 +1304,7 @@ class tableWidget_functions(QtWidgets.QWidget):
                     if len(trlist)==1:                 
                         #print ('get tracked value list',trlist[0],selected[trlist[0]])             
                         return selected[trlist[0]]                    
-        elif self.is_dict(Data_Struct)==True:
+        elif isinstance(Data_Struct,dict):
             selected=Data_Struct #select dictionary
             while len(trlist)>1:
                 selected=selected[trlist[0]]
@@ -1225,8 +1316,8 @@ class tableWidget_functions(QtWidgets.QWidget):
         
         return None
     
-    def get_dict_max_depth(self,adict,depth=0,maxdepth=0):         
-        if self.is_dict(adict)==False and self.is_list(adict)==True and depth==0:     
+    def get_dict_max_depth(self, adict: any, depth:int =0, maxdepth:int =0) -> int:        
+        if isinstance(adict,dict) == False and isinstance(adict,list) and depth==0:     
             for iii in adict:       
                 adepth=self.get_dict_max_depth(iii,0)
                 if depth>=maxdepth:
@@ -1235,7 +1326,7 @@ class tableWidget_functions(QtWidgets.QWidget):
             alist=self.get_dict_key_list(adict)                                     
             for item in alist:                  
                 resdict=adict[item]            
-                if self.is_dict(resdict)==True:                
+                if isinstance(resdict,dict):                
                     adepth=self.get_dict_max_depth(resdict,depth+1,maxdepth)                           
                     if adepth>=maxdepth:
                         maxdepth=adepth

@@ -1,0 +1,16 @@
+# this is actually a pyproject.toml, but only used for black atm
+
+[tool.black]
+line-length = 120
+target_version = ['py36']
+exclude = '''
+(
+  /(
+      \.eggs
+    | \.mypy_cache
+    | build
+    | dist
+    | .*.pyi
+  )/
+)
+'''

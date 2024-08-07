@@ -1,0 +1,36 @@
+[BASIC]
+good-names=logger,
+      x,
+      y,
+      f,
+      ch,
+      db,
+      ii,
+      ip,
+      jj,
+      kk,
+      hw,
+      check
+ignore=proto
+
+[FORMAT]
+max-line-length=120
+
+[MESSAGE CONTROL]
+disable=too-many-instance-attributes,
+      too-many-arguments,
+      too-few-public-methods,
+      too-many-ancestors,
+      no-name-in-module,
+      duplicate-code,
+      cyclic-import,
+      useless-suppression,
+
+[MAIN]
+load-plugins=pylint.extensions.check_elif,
+
+[MISCELLANEOUS]
+
+# List of note tags to take in consideration, separated by a comma.
+notes=FIXME,
+      XXX,
