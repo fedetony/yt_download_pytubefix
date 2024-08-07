@@ -29,6 +29,11 @@ disable=too-many-instance-attributes,
 [MAIN]
 load-plugins=pylint.extensions.check_elif,
 
+extension-pkg-allow-list=PyQt5.QtWidgets,
+	  PyQt5.QtGui,
+	  PyQt5.QtCore,
+
+
 [MISCELLANEOUS]
 
 # List of note tags to take in consideration, separated by a comma.
