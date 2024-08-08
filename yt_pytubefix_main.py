@@ -269,9 +269,9 @@ class Ui_MainWindow_yt(yt_pytubefix_gui.Ui_MainWindow):
             )
             self.url_id_counter = self.url_id_counter + 1
 
-        self.twf.Data_Struct = self.url_struct
+        self.twf.data_struct = self.url_struct
         self.twf.set_show_dict()
-        self.twf.refresh_tableWidget(self.twf.Show_dict, self.twf.modelobj, self.twf.tablewidgetobj)
+        self.twf.refresh_tableWidget(self.twf.show_dict, self.twf.modelobj, self.twf.tablewidgetobj)
 
     def does_url_exist(self, url):
         """

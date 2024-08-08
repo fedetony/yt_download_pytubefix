@@ -4,10 +4,10 @@ Programmed by F.Garcia
 """
 
 import logging
-from multiprocessing.sharedctypes import Value
-from xmlrpc.client import boolean
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5 import QtCore, QtWidgets
 import re
+
+import class_check_restrictions
 
 # set up logging to file - see previous section for more details
 log = logging.getLogger("")  # root logger
@@ -105,14 +105,14 @@ class TableWidgetFunctions(QtWidgets.QWidget):
     def __init__(
         self,
         tablewidgetobj,
-        data_struct: dict | list,
+        data_struct: any,
         data_struct_mask: dict,
         data_id: str = None,
         reference_track: list[str] = None,
         *args,
         **kwargs,
     ):
-        super(TableWidgetFunctions, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.__name__ = "tableWidget Functions"
         if isinstance(tablewidgetobj, QtWidgets.QTableWidget):
             self.tablewidgetobj = tablewidgetobj
@@ -126,6 +126,8 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             self.reference_track = reference_track
         else:
             self.reference_track = []
+        # Set restriction checker
+        self.check_restrictions = class_check_restrictions.CheckRestrictions()
         # displayed on tableWidget
         self.set_show_dict()
         # uses show dict
@@ -144,10 +146,10 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         # print(self.show_dict_types)
         self.refresh_tableWidget(self.show_dict, self.modelobj, self.tablewidgetobj)
         # connect action
-        self.tablewidgetobj.clicked.connect(self.tableWidget_OnClick)
+        self.tablewidgetobj.clicked.connect(self.tablewidget_onclick)
 
     def signal_data_change(self, track: list[str], val: any, valtype: str, subtype: str):
-        """Emmits data has changed and new value to parent
+        """Emits event data has changed and new value to parent
 
         Args:
             track (list[str]): Tracking list with path to follow in dictionary structure
@@ -157,8 +159,13 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         """
         self.data_change.emit(track, val, valtype, subtype)
 
-    def doubleclick_on_item(self, itm):
-        track = self.track_key_Table(itm)
+    def doubleclick_on_item(self, itm: QtWidgets.QTableWidgetItem):
+        """Emits doubleclick event on item, passes track list of item
+
+        Args:
+            itm (QtWidgets.QTableWidgetItem): item being doubleclicked
+        """
+        track = self.get_track_of_item_in_table(itm)
         self.item_doubleclicked.emit(track)
 
     def get_standard_dict_model(self, fieldname: str = "Datafield_1") -> dict:
@@ -172,7 +179,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         """
         return {fieldname: {"Value": "", "Units": "", "Info": "", "Type": str(type(""))}}
 
-    def set_Restore_Columns(self, colkey):
+    def set_restore_columns(self, colkey):
         for iii, ti in enumerate(self.tableitems):
             if colkey == ti:
                 self.restore_key_list.append(colkey)
@@ -209,13 +216,13 @@ class TableWidgetFunctions(QtWidgets.QWidget):
 
         return type_Struct
 
-    def get_gentrack_from_localtrack(self, track):
+    def get_gentrack_from_localtrack(self, track: list):
         gentrack = self.reference_track.copy()
         for iii in track:
             gentrack.append(iii)
         return gentrack
 
-    def get_localtrack_from_gentrack(self, track):
+    def get_localtrack_from_gentrack(self, track: list):
         gentrack = self.reference_track.copy()
         trackc = track.copy()
         for iii in track:
@@ -247,24 +254,24 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         else:
             raise Exception("tableWidget object is Not a {} object".format(type(QtWidgets.QTableWidget)))
 
-    def set_item_style(self, itm):
+    def set_item_style(self, itm: QtWidgets.QTableWidgetItem):
         self.set_icon_to_item(itm)
         self.set_backgroundcolor_to_item(itm)
         self.set_rolevalue_to_item(itm)
 
-    def set_ItemTooltips(self, tooltipict={"track_list": [], "tooltip_list": []}):
+    def set_ItemTooltips(self, tooltipict: dict = {"track_list": [], "tooltip_list": []}) -> None:
         self.tooltip_dict = tooltipict
 
-    def set_ItemIcons(self, icondict={"track_list": [], "icon_list": []}):
+    def set_ItemIcons(self, icondict: dict = {"track_list": [], "icon_list": []}) -> None:
         self.icon_dict = icondict
 
-    def set_ItemBackgroundColor(self, backgroundcolor_dict={"track_list": [], "color_list": []}):
+    def set_ItemBackgroundColor(self, backgroundcolor_dict: dict = {"track_list": [], "color_list": []}) -> None:
         self.backgroundcolor_dict = backgroundcolor_dict
 
-    def set_ItemWidget(self, itemwidget_dict={"track_list": [], "widget_list": []}):
+    def set_ItemWidget(self, itemwidget_dict: dict = {"track_list": [], "widget_list": []}) -> None:
         self.itemwidget_dict = itemwidget_dict
 
-    def set_Itemrolevalue(self, rolevalue_dict={"track_list": [], "role_list": [], "value_list": []}):
+    def set_Itemrolevalue(self, rolevalue_dict: dict = {"track_list": [], "role_list": [], "value_list": []}) -> None:
         self.itemrolevalue_dict = rolevalue_dict
 
     def is_same_list(self, list1: list, list2: list) -> bool:
@@ -284,7 +291,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                 return False
         return True
 
-    def itembuttonclicked(self, track):
+    def itembuttonclicked(self, track: list):
         # print('entered click {}'.format(track))
         self.item_button_clicked.emit(track)
 
@@ -297,12 +304,9 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         currentstate = chb.isChecked()
         self.item_checkbox_checked.emit(currentstate, track)
 
-    def set_widget_to_item(self, itm):
+    def set_widget_to_item(self, itm: QtWidgets.QTableWidgetItem):
         try:
-            if isinstance(itm, QtWidgets.QTableWidgetItem):
-                track = self.track_key_Table(itm)
-            else:
-                return
+            track = self.get_track_of_item_in_table(itm)
             track_list = self.itemwidget_dict["track_list"]
             widget_list = self.itemwidget_dict["widget_list"]
             for tr, iw in zip(track_list, widget_list):
@@ -329,9 +333,9 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             print("set_widget_to_item error--->", e)
             pass
 
-    def set_icon_to_item(self, itm):
+    def set_icon_to_item(self, itm: QtWidgets.QTableWidgetItem):
         try:
-            track = self.track_key_Table(itm)
+            track = self.get_track_of_item_in_table(itm)
             track_list = self.icon_dict["track_list"]
             icon_list = self.icon_dict["icon_list"]
             for tr, ic in zip(track_list, icon_list):
@@ -340,9 +344,9 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         except:
             pass
 
-    def set_rolevalue_to_item(self, itm):
+    def set_rolevalue_to_item(self, itm: QtWidgets.QTableWidgetItem):
         try:
-            track = self.track_key_Table(itm)
+            track = self.get_track_of_item_in_table(itm)
             track_list = self.itemrolevalue_dict["track_list"]
             role_list = self.itemrolevalue_dict["role_list"]
             value_list = self.itemrolevalue_dict["value_list"]
@@ -352,9 +356,9 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         except:
             pass
 
-    def set_backgroundcolor_to_item(self, itm):
+    def set_backgroundcolor_to_item(self, itm: QtWidgets.QTableWidgetItem):
         try:
-            track = self.track_key_Table(itm)
+            track = self.get_track_of_item_in_table(itm)
             track_list = self.backgroundcolor_dict["track_list"]
             color_list = self.backgroundcolor_dict["color_list"]
             for tr, ic in zip(track_list, color_list):
@@ -363,13 +367,13 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         except:
             pass
 
-    def set_tooltiptext(self, itm):
+    def set_tooltiptext(self, itm: QtWidgets.QTableWidgetItem):
         reslist, resvallist = self.get_item_restriction_resval(itm)
         for res, resval in zip(reslist, resvallist):
             if res in ["limited_selection", "is_list_item_limited_selection"]:
                 itm.setToolTip("Options: {}".format(resval))
         try:
-            track = self.track_key_Table(itm)
+            track = self.get_track_of_item_in_table(itm)
             track_list = self.tooltip_dict["track_list"]
             tooltip_list = self.tooltip_dict["tooltip_list"]
             for tr, itt in zip(track_list, tooltip_list):
@@ -378,23 +382,14 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         except:
             pass
 
-    def tableWidget_OnClick(self, index):
-        if isinstance(index, QtCore.QModelIndex):
-            mycol = index.column()
-            myrow = index.row()
+    def tablewidget_onclick(self, index: QtCore.QModelIndex):
+        """Onclick method on table widget restores or edits the item
+
+        Args:
+            index (QtCore.QModelIndex): Item being clicked
         """
-        icol=self.get_item_column_pos_in_table('Item')
-        vcol=self.get_item_column_pos_in_table('Value')
-        tcol=self.get_item_column_pos_in_table('Type')
-        #Set items editable                        
-        #self.tablewidgetobj.resizeColumnToContents(mycol)
-        indexitem=index.siblingAtColumn(icol)
-        itm=self.tablewidgetobj.itemFromIndex(indexitem)        
-        indexvalue=index.siblingAtColumn(vcol)
-        valueitem=self.tablewidgetobj.itemFromIndex(indexvalue)        
-        indextype=index.siblingAtColumn(tcol)
-        typeitem=self.tablewidgetobj.itemFromIndex(indextype)
-        """
+        mycol = index.column()
+
         if self.resizetocontents:
             self.tablewidgetobj.resizeColumnToContents(mycol)
         itm = self.tablewidgetobj.itemFromIndex(index)
@@ -403,15 +398,19 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         self.set_tooltiptext(index)
         if mycol in self.restore_column_list:
             self.restore_a_tableWidget_Item(index)
-            return
         else:
             val_ = itm.text()
-            if self.str_to_bool_or_none(val_) in [True, False]:
+            if self.check_restrictions.str_to_bool_or_none(val_) in [True, False]:
                 self.set_checkbox_value(itm)
-            self.edit_a_tableWidget_Item(index)
+            self.edit_a_table_widget_item(index)
 
-    def set_checkbox_value(self, valueitem):
-        if self.str_to_bool(valueitem.text()):
+    def set_checkbox_value(self, valueitem: QtWidgets.QTableWidgetItem):
+        """Sets checkstate on checkbox when item is a boolean
+
+        Args:
+            valueitem (QtWidgets.QTableWidgetItem): Item
+        """
+        if self.check_restrictions.str_to_bool(valueitem.text()):
             valueitem.setCheckState(True)
         else:
             valueitem.setCheckState(False)
@@ -423,17 +422,40 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                 return iii
         return None
 
-    def get_key_value_from_item(self, anitem):
-        if isinstance(anitem, QtWidgets.QTableWidgetItem):
-            myrow = anitem.row()
-            return self.get_key_value_from_row(myrow)
+    def get_key_value_from_item(self, anitem: QtWidgets.QTableWidgetItem):
+        """Gets the dictionary key for an item
 
-    def get_key_value_from_row(self, myrow):
+        Args:
+            anitem (QtWidgets.QTableWidgetItem): item in table
+
+        Returns:
+            _type_: key on dictionary related to the row the item is in
+        """
+        myrow = anitem.row()
+        return self.get_key_value_from_row(myrow)
+
+    def get_key_value_from_row(self, myrow: int):
+        """Gets the dictionary key located in the row
+
+        Args:
+            myrow (int): row number
+
+        Returns:
+            any: key on dictionary related to the row
+        """
         for iii, key in enumerate(self.show_dict):
             if iii == myrow:
                 return key
 
-    def track_key_Table(self, anitem):
+    def get_track_of_item_in_table(self, anitem: QtWidgets.QTableWidgetItem) -> list:
+        """Generates a track list of the item in the structure
+
+        Args:
+            anitem (QtWidgets.QTableWidgetItem): item object to be tracked
+
+        Returns:
+            list: track list of item
+        """
         track = self.reference_track.copy()
         if isinstance(anitem, QtWidgets.QTableWidgetItem):
             myrow = anitem.row()
@@ -443,65 +465,78 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             track.append(self.get_item_from_colpos(mycol))
         return track
 
-    def edit_a_tableWidget_Item(self, index):
-        # print('edit_a_tableWidget_Item',index)
+    def edit_a_table_widget_item(self, index):
+        # print('edit_a_table_widget_item',index)
         itm = self.tablewidgetobj.itemFromIndex(index)
         val = itm.text()
         # print('edit index set:',index.data())
         self._last_value_selected = val
         self.tablewidgetobj.itemChanged.connect(lambda: self.Item_data_changed(index, val))
 
-    def get_list_of_tracks_of_children(self, parenttrack):
-        self.get_gentrack_from_localtrack
+    # def get_list_of_tracks_of_children(self, parenttrack):
+    #    self.get_gentrack_from_localtrack
 
-    def get_item_from_track(self, modelobj, track):
-        if isinstance(modelobj, QtCore.QAbstractItemModel):
-            try:
-                itmtrack = []
-                itmindextrack = []
-                parent = None
-                for ttt, tr in enumerate(track):
-                    if parent is None:
-                        # log.info('the size -> {}'.format(modelobj.rowCount()))
-                        for iii in range(modelobj.rowCount()):
-                            itmindex = modelobj.index(iii, 0)
-                            itm = modelobj.itemFromIndex(itmindex)
-                            if itm is not None:
-                                # log.info('got this-> {} search for {}'.format(itm.text(),tr))
-                                if tr == itm.text():
-                                    break
-                            else:
+    def get_item_from_track(self, modelobj: QtCore.QAbstractItemModel, track: list) -> None:
+        """Get an item object and all related info
+
+        Args:
+            modelobj (QtCore.QAbstractItemModel): Table widget model object
+            track (list): where is the item located track
+
+        Returns:
+            QtWidgets.QTableWidgetItem: Item
+            QtCore.QModelIndex: Item index
+            list: item track list
+            list: track list of indexes
+
+        """
+        try:
+            itmtrack = []
+            itmindextrack = []
+            parent = None
+            for tr in track:
+                if parent is None:
+                    # log.info('the size -> {}'.format(modelobj.rowCount()))
+                    for iii in range(modelobj.rowCount()):
+                        itmindex = modelobj.index(iii, 0)
+                        itm = modelobj.itemFromIndex(itmindex)
+                        if itm is not None:
+                            # log.info('got this-> {} search for {}'.format(itm.text(),tr))
+                            if tr == itm.text():
                                 break
-                        if itm is None:
+                        else:
                             break
-                        if tr != itm.text():  # not found
-                            break
-                    else:
-                        # log.info('the size -> {}'.format(modelobj.rowCount(parent)))
-                        for iii in range(modelobj.rowCount(parent)):
-                            itmindex = modelobj.index(iii, 0, parent)
-                            itm = modelobj.itemFromIndex(itmindex)
-                            if itm is not None:
-                                # log.info('parent got this-> {} search for {}'.format(itm.text(),tr))
-                                if tr == itm.text():
-                                    break
-                            else:
+                    if itm is None:
+                        break
+                    if tr != itm.text():  # not found
+                        break
+                else:
+                    # log.info('the size -> {}'.format(modelobj.rowCount(parent)))
+                    for iii in range(modelobj.rowCount(parent)):
+                        itmindex = modelobj.index(iii, 0, parent)
+                        itm = modelobj.itemFromIndex(itmindex)
+                        if itm is not None:
+                            # log.info('parent got this-> {} search for {}'.format(itm.text(),tr))
+                            if tr == itm.text():
                                 break
-                        if itm is None:
+                        else:
                             break
-                        if tr != itm.text():  # not found
-                            break
-                    parent = itmindex
-                    parentitm = modelobj.itemFromIndex(parent)
-                    if parentitm.text() == "ID":
-                        parenttxt = parentitm.text()
-                        parent = None
-                        continue
-                    itmtrack.append(itm)
-                    itmindextrack.append(itmindex)
-                return itm, itmindex, itmtrack, itmindextrack
-            except Exception as e:
-                log.error("get item from track: {}".format(e))
+                    if itm is None:
+                        break
+                    if tr != itm.text():  # not found
+                        break
+                parent = itmindex
+                parentitm = modelobj.itemFromIndex(parent)
+                if parentitm.text() == "ID":
+                    # parenttxt = parentitm.text()
+                    parent = None
+                    continue
+                itmtrack.append(itm)
+                itmindextrack.append(itmindex)
+            return itm, itmindex, itmtrack, itmindextrack
+        except Exception as e:
+            log.error("get item from track: {}".format(e))
+            return None, None, None, None
 
     def Item_data_changed(self, index, val):
         if isinstance(index, QtCore.QModelIndex):
@@ -518,7 +553,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         if new_value != old_value and old_value is not None and index in selindex:
             # indextype=index.siblingAtColumn(tcol)
             # typeitem=self.tablewidgetobj.itemFromIndex(indextype)
-            track = self.track_key_Table(self.tablewidgetobj.itemFromIndex(index))
+            track = self.get_track_of_item_in_table(self.tablewidgetobj.itemFromIndex(index))
             # Here check if value is ok if yes
             valisok = self.check_item_value_for_edit(index, new_value, old_value, self.show_dict)
             log.info("Data changed -> New:{} Old:{} Track: {} isvalid: {}".format(new_value, old_value, track, valisok))
@@ -702,18 +737,26 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                 return endtrack
         return track
 
-    def check_item_value_for_edit(self, index, val, old_val, data_struct, isok=True):
+    def check_item_value_for_edit(self, index, val: any, isok=True) -> bool:
+        """Check that the new value is conform to restrictions
+
+        Args:
+            index (_type_): index of item on TableWidget
+            val (any): Value to be set
+            isok (bool, optional): Result of previous checks. Defaults to True.
+
+        Returns:
+            bool: True if New Value conforms restrictions, False does not conform Restrictions
+        """
         # No need to check type in table, inside mask
-        # isok=self.check_item_by_type(index,val,old_val,isok)
-        # print('bytype isok=',isok)
-        # log.debug('bytype isok={}'.format(isok))
-        isok = self.check_item_by_mask(index, val, old_val, data_struct, isok)
+
+        isok = self.check_item_by_mask(index, val, isok)
         # print('bymask isok=',isok)
         log.debug("bymask isok={}".format(isok))
         return isok
 
     def get_item_restriction_resval(self, itm):
-        track = self.track_key_Table(itm)
+        track = self.get_track_of_item_in_table(itm)
         itmmask = self.get_mask_for_item(track)
         if itmmask == {}:
             itmmask = self.get_mask_for_item(self.get_gentrack_from_localtrack(track))
@@ -730,17 +773,27 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                     resvallist.append(restrictionval)
         return reslist, resvallist
 
-    def check_item_by_mask(self, index, val, old_val, data_struct, isok=True):
+    def check_item_by_mask(self, index, val, isok=True) -> bool:
+        """Checks a TableWidget Item value is conform with restrictions masks
+
+        Args:
+            index (QtCore.QModelIndex): Index of element of table
+            val (_type_): Value desired to be set
+            isok (bool, optional): Previous/other checks results. Defaults to True.
+
+        Returns:
+            bool: True if value is ok with the mask restrictions.
+        """
         # Here to add specific value ranges,formats for example
         # like if list can have more items or if axis has to be only X or Y
-        if isinstance(index, QtCore.QModelIndex):
-            mycol = index.column()
-            myrow = index.row()
+        # if isinstance(index, QtCore.QModelIndex):
+        #     mycol = index.column()
+        #     myrow = index.row()
         # tcol=self.get_item_column_pos_in_table('Type')
         # indextype=index.siblingAtColumn(tcol)
         # typeitem=indextype.model().itemFromIndex(indextype)
         itm = self.tablewidgetobj.itemFromIndex(index)
-        track = self.track_key_Table(itm)
+        track = self.get_track_of_item_in_table(itm)
         itmmask = self.get_mask_for_item(track)
         if itmmask == {}:
             itmmask = self.get_mask_for_item(self.get_gentrack_from_localtrack(track))
@@ -756,7 +809,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                     restriction = itmmask[keyname]
                     restrictionval = itmmask[keyval]
                     # print('Check restriction',restriction,'---->',restrictionval)
-                    isok = self.checkitem_value_with_mask(restriction, restrictionval, val)
+                    isok = self.check_restrictions.checkitem_value_with_mask(restriction, restrictionval, val)
                     if restriction == "is_unique" and "ID" in track:
                         idlist = self.get_ID_list()
                         if val in idlist:
@@ -771,281 +824,6 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         for aaa in self.data_struct:
             IDlist.append(aaa["ID"])
         return IDlist
-
-    def str_to_bool_or_none(self, astr: any) -> bool:
-        """Convert a string to a bool with None possibilty
-
-        Args:
-            val (any): value/string/bool to convert
-
-        Returns:
-            bool: True/False if bool True/False if string True/true or False/false, else None
-        """
-        if isinstance(astr, bool):
-            return astr
-        elif isinstance(astr, str):
-            if astr.lower() in ["true"]:
-                return True
-            elif astr.lower() in ["false"]:
-                return False
-            else:
-                return None
-        else:
-            return None
-
-    def str_to_bool(self, val: any) -> bool:
-        """Convert a string to a bool
-
-        Args:
-            val (any): value/string/bool to convert
-
-        Returns:
-            bool: True if bool True or string True/true, else False
-        """
-        if self.str_to_bool_or_none(val):
-            return True
-        return False
-
-    def checkitem_value_with_mask(self, restriction, restrictionval, value):
-        isok = True
-        if restriction == "is_list_item_type":
-            strlist = self.str_to_list(value)
-            # print('got value:',value,type(value),'the list:',strlist,'resval:',restrictionval)
-            try:
-                for iii in strlist:
-                    # print(iii)
-                    if restrictionval == str(int):
-                        _ = int(iii.strip())
-                        rema = re.search(r"^[-+]?[0-9]+$", iii.strip())
-                        if rema:
-                            isok = True
-                        else:
-                            isok = False
-                    elif restrictionval == str(float):
-                        _ = float(iii)
-                    elif restrictionval == str(bool):
-                        ans = self.str_to_bool_or_none(iii)
-                        if ans is None:
-                            isok = False
-                    else:
-                        isok = self.check_type(restrictionval, iii, isok)
-            except AttributeError or ValueError or TypeError:
-                isok = False
-        elif restriction == "is_list_length":
-            strlist = self.str_to_list(value)
-            # print('got value:',value,type(value),'the list:',strlist,'resval:',restrictionval)
-            try:
-                if restrictionval != len(strlist):
-                    isok = False
-            except ValueError or TypeError:
-                # print(e)
-                isok = False
-        elif restriction == "is_list_lengthGT":
-            strlist = self.str_to_list(value)
-            try:
-                if restrictionval <= len(strlist):
-                    isok = False
-            except ValueError or TypeError:
-                isok = False
-        elif restriction == "is_list_lengthLT":
-            strlist = self.str_to_list(value)
-            try:
-                if restrictionval >= len(strlist):
-                    isok = False
-            except ValueError or TypeError:
-                isok = False
-        elif restriction == "limited_selection":
-            try:
-                if value not in restrictionval:
-                    isok = False
-                    log.info("Selection '{}' not in permitted list: {}".format(value, restrictionval))
-            except ValueError or TypeError:
-                isok = False
-        elif restriction == "is_list_item_limited_selection":
-            try:
-                if not isinstance(value, list):
-                    alist = self.str_to_list(value)
-                else:
-                    alist = value
-                for aval in alist:
-                    if aval not in restrictionval:
-                        isok = False
-                        log.info("Selection '{}' not in permitted list: {}".format(aval, restrictionval))
-            except ValueError or TypeError:
-                isok = False
-        elif restriction == "is_list_item_format":
-            try:
-                if not isinstance(value, list):
-                    alist = self.str_to_list(value)
-                else:
-                    alist = value
-                for aval in alist:
-                    if aval != "":
-                        try:
-                            rema = re.search(restrictionval, aval)
-                            if rema.group() is not None:
-                                isok = True
-                        except:
-                            isok = False
-                            break
-            except AttributeError or ValueError or TypeError:
-                isok = False
-        elif restriction == "is_list_item_value_LT":
-            try:
-                if not isinstance(value, list):
-                    alist = self.str_to_list(value)
-                else:
-                    alist = value
-                for aval in alist:
-                    val = float(aval)
-                    if restrictionval <= val:
-                        isok = False
-                        log.info("Selection '{}' not in permitted list: {}".format(aval, restrictionval))
-            except ValueError or TypeError:
-                isok = False
-        elif restriction == "is_list_item_value_GT":
-            try:
-                if not isinstance(value, list):
-                    alist = self.str_to_list(value)
-                else:
-                    alist = value
-                for aval in alist:
-                    val = float(aval)
-                    if restrictionval >= val:
-                        isok = False
-                        log.info("Selection '{}' not in permitted list: {}".format(aval, restrictionval))
-            except ValueError or TypeError:
-                isok = False
-        elif restriction == "is_list_item_value_EQ":
-            try:
-                if not isinstance(value, list):
-                    alist = self.str_to_list(value)
-                else:
-                    alist = value
-                for aval in alist:
-                    val = float(aval)
-                    if restrictionval == val:
-                        isok = False
-                        log.info("Selection '{}' not in permitted list: {}".format(aval, restrictionval))
-            except ValueError or TypeError:
-                isok = False
-        elif restriction == "is_list_item_value_LTEQ":
-            try:
-                if not isinstance(value, list):
-                    alist = self.str_to_list(value)
-                else:
-                    alist = value
-                for aval in alist:
-                    val = float(aval)
-                    if restrictionval < val:
-                        isok = False
-                        log.info("Selection '{}' not in permitted list: {}".format(aval, restrictionval))
-            except ValueError or TypeError:
-                isok = False
-        elif restriction == "is_list_item_value_GTEQ":
-            try:
-                if not isinstance(value, list):
-                    alist = self.str_to_list(value)
-                else:
-                    alist = value
-                for aval in alist:
-                    val = float(aval)
-                    if restrictionval > val:
-                        isok = False
-                        log.info("Selection '{}' not in permitted list: {}".format(aval, restrictionval))
-            except ValueError or TypeError:
-                isok = False
-        elif restriction == "is_list_item_value_NEQ":
-            try:
-                if not isinstance(value, list):
-                    alist = self.str_to_list(value)
-                else:
-                    alist = value
-                for aval in alist:
-                    val = float(aval)
-                    if restrictionval != val:
-                        isok = False
-                        log.info("Selection '{}' not in permitted list: {}".format(aval, restrictionval))
-            except ValueError or TypeError:
-                isok = False
-        elif restriction == "is_format":
-            if value != "":
-                try:
-                    rema = re.search(restrictionval, value)
-                    if rema.group() is not None:
-                        isok = True
-                except AttributeError or ValueError or TypeError:
-                    isok = False
-        elif restriction == "is_unique":
-            isok = True  # None
-        elif restriction == "is_not_change":
-            isok = False
-        elif restriction == "is_value_LT":
-            try:
-                val = float(value)
-                if restrictionval <= val:
-                    isok = False
-            except ValueError or TypeError:
-                isok = False
-        elif restriction == "is_value_GT":
-            try:
-                val = float(value)
-                if restrictionval >= val:
-                    isok = False
-            except ValueError or TypeError:
-                isok = False
-        elif restriction == "is_value_EQ":
-            try:
-                val = float(value)
-                if restrictionval == val:
-                    isok = False
-            except ValueError or TypeError:
-                isok = False
-        elif restriction == "is_value_LTEQ":
-            try:
-                val = float(value)
-                if restrictionval < val:
-                    isok = False
-            except ValueError or TypeError:
-                isok = False
-        elif restriction == "is_value_GTEQ":
-            try:
-                val = float(value)
-                if restrictionval > val:
-                    isok = False
-            except ValueError or TypeError:
-                isok = False
-        elif restriction == "is_value_NEQ":
-            try:
-                val = float(value)
-                if restrictionval != val:
-                    isok = False
-            except ValueError or TypeError:
-                isok = False
-        elif restriction == "is_value_type":
-            if restrictionval == str(int):
-                try:
-                    _ = int(value.strip())
-                    rema = re.search(r"^[-+]?[0-9]+$", value.strip())
-                    if rema:
-                        isok = True
-                    else:
-                        isok = False
-                except AttributeError or ValueError or TypeError:
-                    isok = False
-            elif restrictionval == str(float):
-                try:
-                    _ = float(value.strip())
-                except ValueError or TypeError:
-                    isok = False
-            elif restrictionval == str(bool):
-                ans = self.str_to_bool_or_none(value.strip())
-                if ans is None:
-                    isok = False
-            else:
-                isok = self.check_type(restrictionval, value.strip(), isok)
-
-        return isok
 
     def get_mask_for_item(self, track):
         maskstruct = self.data_struct_mask
@@ -1088,51 +866,6 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             count = count + 1
         return mask
 
-    def check_item_by_type(self, index, val, old_val, isok=True):
-        if isinstance(index, QtCore.QModelIndex):
-            mycol = index.column()
-            myrow = index.row()
-
-        tcol = self.get_item_column_pos_in_table("Type")
-        indextype = index.siblingAtColumn(tcol)
-        typeitem = self.tablewidgetobj.itemFromIndex(indextype)
-        the_type = typeitem.text()
-        # print('item type', the_type)
-        return self.check_type(the_type, val, isok)
-
-    def check_type(self, the_type, val, isok=True):
-        if the_type == str(int):
-            try:
-                res = int(val)
-            except ValueError or TypeError:
-                isok = False
-                pass
-        elif the_type == str(bool):
-            ans = self.str_to_bool_or_none(val)
-            if ans not in [True, False]:
-                isok = False
-        elif the_type == str(float):
-            try:
-                res = float(val)
-            except ValueError or TypeError:
-                isok = False
-                pass
-        elif the_type == str(str):
-            try:
-                res = str(val)
-            except ValueError or TypeError:
-                isok = False
-                pass
-        elif the_type == str(dict):
-            isok = True
-        elif the_type == str(list):
-            try:
-                isok = isinstance(self.str_to_list(val), list)
-            except ValueError or TypeError:
-                isok = False
-                pass
-        return isok
-
     def str_to_list(self, astr: str) -> list:
         try:
             rema = re.search(r"^\[(.+,)*(.+)?\]$", astr)
@@ -1151,7 +884,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
     def restore_a_tableWidget_Item(self, index):
         itm = self.tablewidgetobj.itemFromIndex(index)
         # column = itm.column()
-        track = self.track_key_Table(self.tablewidgetobj.itemFromIndex(index))
+        track = self.get_track_of_item_in_table(self.tablewidgetobj.itemFromIndex(index))
         value = self.get_tracked_value_in_struct(track, self.data_struct)
         print("Restored {} to {}".format(track, value))
         itm.setText(str(value))
@@ -1277,7 +1010,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                         # set the item into table
                         tablewidgetobj.setItem(rowpos, colpos, at_item)
                         tablewidgetobj.resizeColumnToContents(colpos)
-                        if self.str_to_bool_or_none(val_) in [True, False]:
+                        if self.check_restrictions.str_to_bool_or_none(val_) in [True, False]:
                             if isinstance(val_, bool):
                                 self.set_checkbox_value(at_item)
                             # Add tooltip text
