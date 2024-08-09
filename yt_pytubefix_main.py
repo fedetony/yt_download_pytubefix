@@ -100,7 +100,9 @@ class Ui_MainWindow_yt(yt_pytubefix_gui.Ui_MainWindow):
 
         # -----------TableWidgetFunctions
 
-        self.twf = class_table_widget_functions.TableWidgetFunctions(self.tableWidget_url, self.url_struct, {}, None, [])
+        self.twf = class_table_widget_functions.TableWidgetFunctions(
+            self.tableWidget_url, self.url_struct, {}, None, []
+        )
         # self.model=self.twf.modelobj
         # self.twf.data_change[list,str,str,str].connect(self.refresh_dialog_treeview)
         # self.icons_dict={'Plots':self.iconMain}
@@ -271,7 +273,7 @@ class Ui_MainWindow_yt(yt_pytubefix_gui.Ui_MainWindow):
 
         self.twf.data_struct = self.url_struct
         self.twf.set_show_dict()
-        self.twf.refresh_tableWidget(self.twf.show_dict, self.twf.modelobj, self.twf.tablewidgetobj)
+        self.twf.refresh_tablewidget(self.twf.show_dict, self.twf.modelobj, self.twf.tablewidgetobj)
 
     def does_url_exist(self, url):
         """
