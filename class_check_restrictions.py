@@ -498,6 +498,7 @@ class CheckRestrictions:
         """
         try:
             rema = re.search(r"^\[(.+,)*(.+)?\]$", astr)
+            splited = None
             if rema.group() is not None:
                 sss = astr.strip("[")
                 sss = sss.strip("]")
@@ -506,7 +507,46 @@ class CheckRestrictions:
                 sss = sss.strip()  # spaces
                 # sss=sss.strip("'")
                 splited = sss.split(",")
-                return splited
+            return splited
         except AttributeError:
             pass
         return None
+
+    def set_type_to_value(self, val: any, typestr: str, subtype: str = "") -> any:
+        """Set the specified type to a val, if possible
+
+        Args:
+            val (any): _description_
+            typestr (str): _description_
+            subtype (str, optional): For list inner values. Defaults to "".
+
+        Returns:
+            any: Value in specified type
+        """
+        try:
+            if typestr == str(int):
+                tyval = int(val)
+            elif typestr == str(float):
+
+                tyval = float(val)
+            elif typestr == str(bool):
+                if val in ["1", "True", "true", "yes", "Yes"]:
+                    tyval = True
+                elif val in ["0", "False", "false", "no", "No"]:
+                    tyval = False
+                else:
+                    tyval = int(val)
+            elif typestr == str(list):
+                split = self._str_to_list(val)
+                if split is not None:
+                    tyval = []
+                    for iii in split:
+                        iiival = self.set_type_to_value(iii, subtype, "")
+                        tyval.append(iiival)
+                else:
+                    tyval = str(val)
+            else:
+                tyval = str(val)
+        except (TypeError, ValueError):
+            tyval = str(val)
+        return tyval

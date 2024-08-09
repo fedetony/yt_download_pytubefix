@@ -78,7 +78,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
     Data_you_want_to_show in the TableWidget
     reference_track=["Item1" "Data_you_want_to_show"]
 
-    data_id=Is the root item of your data_struct.
+    data_id=Is the root item of your data_struct. This is not used in dictionary structures.
 
     If data_struct is a list like ->
     [data_struct1,data_struct2...]
@@ -92,16 +92,16 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             }
     ...
     Then
-    data_id= "Id1"
+    data_id= "Id1" -> For getting only information on a specific 'ID' for list structure only.
     and
     reference_track=["Id1" "Item1" "Data_you_want_to_show"]
     """
 
-    data_change = QtCore.pyqtSignal(list, str, str, str)
-    item_button_clicked = QtCore.pyqtSignal(list)
-    item_combobox_currentIndexChanged = QtCore.pyqtSignal(int, str, list)
+    signal_data_change = QtCore.pyqtSignal(list, str, str, str)
+    signal__item_button_clicked = QtCore.pyqtSignal(list)
+    signal_item_combobox_currentindexchanged = QtCore.pyqtSignal(int, str, list)
     item_doubleclicked = QtCore.pyqtSignal(list)
-    item_checkbox_checked = QtCore.pyqtSignal(bool, list)
+    signal_item_checkbox_checked = QtCore.pyqtSignal(bool, list)
 
     def __init__(
         self,
@@ -146,9 +146,9 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         # print(self.show_dict_types)
         self.refresh_tablewidget(self.show_dict, self.modelobj, self.tablewidgetobj)
         # connect action
-        self.tablewidgetobj.clicked.connect(self.tablewidget_onclick)
+        self.tablewidgetobj.clicked.connect(self._tablewidget_onclick)
 
-    def signal_data_change(self, track: list[str], val: any, valtype: str, subtype: str):
+    def _data_change(self, track: list[str], val: any, valtype: str, subtype: str):
         """Emits event data has changed and new value to parent
 
         Args:
@@ -157,9 +157,9 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             valtype (str): string with value type
             subtype (str): if list inner value type
         """
-        self.data_change.emit(track, val, valtype, subtype)
+        self.signal_data_change.emit(track, val, valtype, subtype)
 
-    def doubleclick_on_item(self, itm: QtWidgets.QTableWidgetItem):
+    def _doubleclick_on_item(self, itm: QtWidgets.QTableWidgetItem):
         """Emits doubleclick event on item, passes track list of item
 
         Args:
@@ -179,13 +179,21 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         """
         return {fieldname: {"Value": "", "Units": "", "Info": "", "Type": str(type(""))}}
 
-    def set_restore_columns(self, colkey: QtWidgets.QTableWidgetItem):
-        for iii, ti in enumerate(self.tableitems):
+    def _set_restore_columns(self, colkey: QtWidgets.QTableWidgetItem):
+        """Sets dictionaries for restoring a value
+
+        Args:
+            colkey (QtWidgets.QTableWidgetItem): item in table
+        """
+        for iii, ti in enumerate(self.table_items):
             if colkey == ti:
                 self.restore_key_list.append(colkey)
                 self.restore_column_list.append(iii)
 
     def set_show_dict(self):
+        """
+        Sets show_dict in accordance to the reference path and data struct.
+        """
         if len(self.reference_track) == 0:
             showdict = self.get_dictionary_from_structlist(self.data_struct, self.data_id)
             # print('From len 0 showdict:\n',showdict)
@@ -198,6 +206,15 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             self.show_dict = self.data_struct
 
     def get_types_struct(self, dict_struct):
+        """Generates a copy of the structure (list or dictionary)
+           replacing values with a string of the value type
+
+        Args:
+            dict_struct (any): struct
+
+        Returns:
+            any: struct with types
+        """
         if isinstance(dict_struct, list):
             type_struct = []
             for a_data in dict_struct:
@@ -216,13 +233,28 @@ class TableWidgetFunctions(QtWidgets.QWidget):
 
         return type_struct
 
-    def get_gentrack_from_localtrack(self, track: list):
+    def get_gentrack_from_localtrack(self, track: list) -> list:
+        """Adds refence track to a local track
+
+        Args:
+            track (list): local track (show_dict)
+
+        Returns:
+            list: general track (data_struct) using reference_track
+        """
         gentrack = self.reference_track.copy()
         for iii in track:
             gentrack.append(iii)
         return gentrack
 
-    def get_localtrack_from_gentrack(self, track: list):
+    def get_localtrack_from_gentrack(self, track: list) -> list:
+        """Gets local track (show_dict) of a general track (data_struct) using reference_track
+        Args:
+            track (list): Track of Struct dict
+
+        Returns:
+            list: returns local track show_dict removing reference_track path
+        """
         gentrack = self.reference_track.copy()
         trackc = track.copy()
         for iii in track:
@@ -230,17 +262,28 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                 trackc.pop(0)
         return trackc
 
-    def get_dictionary_from_structlist(self, data_struct, data_id=None) -> dict:
+    def get_dictionary_from_structlist(self, data_struct: any, data_id=None) -> dict:
+        """get the struct in dictionary form
+
+        Args:
+            data_struct (any): Data can be a list of dictionaries with 'ID' keys. Or dictionary form.
+            data_id (_type_, optional): For getting only information on a specific 'ID' for list
+            structure only. Defaults to None.
+        Returns:
+            dict: _description_
+        """
         if isinstance(data_struct, list):
             for adict in data_struct:
-                if adict["ID"] == data_id:
-                    # print('get my dict Found ID',data_id)
-                    return adict.copy()
+                try:
+                    if adict["ID"] == data_id:
+                        # print('get my dict Found ID',data_id)
+                        return adict.copy()
+                except KeyError:
+                    break
         elif isinstance(data_struct, dict) or data_id is None:
             # print('get my dict nochange is dict',data_id)
             return data_struct.copy()
-        else:
-            return {}
+        return {}
 
     def refresh_tablewidget(
         self, data_dict: any, modelobj: QtCore.QAbstractItemModel, tablewidgetobj: QtWidgets.QTableWidget
@@ -260,15 +303,15 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             tablewidgetobj.resizeColumnsToContents()
             # self.set_tableWidget_styles(tablewidgetobj.model())
 
-    def set_item_style(self, itm: QtWidgets.QTableWidgetItem):
+    def _set_item_style(self, itm: QtWidgets.QTableWidgetItem):
         """Sets icon, background color and rolevalue to the item
 
         Args:
             itm (QtWidgets.QTableWidgetItem): item in table
         """
-        self.set_icon_to_item(itm)
-        self.set_backgroundcolor_to_item(itm)
-        self.set_rolevalue_to_item(itm)
+        self._set_icon_to_item(itm)
+        self._set_backgroundcolor_to_item(itm)
+        self._set_rolevalue_to_item(itm)
 
     def set_items_tooltips(self, tooltipdict: dict = {"track_list": [], "tooltip_list": []}) -> None:
         """Sets dictionary for tooltips of each item
@@ -288,6 +331,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             icondict (_type_, optional):(dict, optional): Lists must be of the same lengths. Dict must contain:
             "track_list": [TrackListItem1, ... , TrackListItemN]
             "icon_list": [IconObject1, ... , IconObjectN]
+            IconObject is a QIcon object
             Defaults to {"track_list": [], "icon_list": []}.
         """
         self.icon_dict = icondict
@@ -299,6 +343,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             backgroundcolor_dict (_type_, optional): Lists must be of the same lengths. Dict must contain:
             "track_list": [TrackListItem1, ... , TrackListItemN].
             "color_list": [ColorObject1, ... , ColorObjectN]
+            Color Object can be QBrush, QColor, GlobalColor or QGradient
             Defaults to {"track_list": [], "color_list": []}.
         """
         self.backgroundcolor_dict = backgroundcolor_dict
@@ -310,6 +355,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             itemwidget_dict (_type_, optional): Lists must be of the same lengths. Dict must contain:
             "track_list": [TrackListItem1, ... , TrackListItemN].
             "widget_list": [WidgetObject1, ... , WidgetObjectN]
+            WidgetObject should be QtWidgets.QPushButton, QComboBox , QCheckBox, or QLabel objects
             Defaults to {"track_list": [], "widget_list": []}.
         """
         self.itemwidget_dict = itemwidget_dict
@@ -328,7 +374,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         """
         self.itemrolevalue_dict = rolevalue_dict
 
-    def is_same_list(self, list1: list, list2: list) -> bool:
+    def _is_same_list(self, list1: list, list2: list) -> bool:
         """Compares two lists
 
         Args:
@@ -345,26 +391,48 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                 return False
         return True
 
-    def itembuttonclicked(self, track: list):
+    def _item_button_clicked(self, track: list):
+        """Emits signal for button clicked of item
+        Args:
+            track (list): track list of item clicked
+        """
         # print('entered click {}'.format(track))
-        self.item_button_clicked.emit(track)
+        self.signal__item_button_clicked.emit(track)
 
-    def itemcomboboxindexchanged(self, cbw, track: list = []):
+    def _item_combobox_indexchanged(self, cbw: QtWidgets.QComboBox, track: list = []):
+        """Emits signal for item combobox widget
+
+        Args:
+            cbw (QtWidgets.QComboBox): combobox widget
+            track (list, optional): track list of item . Defaults to [].
+        """
         currenttxt = cbw.currentText()
         index = cbw.findText(currenttxt, QtCore.Qt.MatchFixedString)
-        self.item_combobox_currentIndexChanged.emit(index, currenttxt, track)
+        self.signal_item_combobox_currentindexchanged.emit(index, currenttxt, track)
 
-    def itemcheckboxchecked(self, chb, track: list = []):
+    def _item_checkbox_checked(self, chb: QtWidgets.QCheckBox, track: list = []):
+        """Emits signal for item checkbox
+
+        Args:
+            chb (QtWidgets.QCheckBox): checkbox widget
+            track (list, optional): track list of item. Defaults to [].
+        """
         currentstate = chb.isChecked()
-        self.item_checkbox_checked.emit(currentstate, track)
+        self.signal_item_checkbox_checked.emit(currentstate, track)
 
-    def set_widget_to_item(self, itm: QtWidgets.QTableWidgetItem):
+    def _set_widget_to_item(self, itm: QtWidgets.QTableWidgetItem):
+        """Sets a widget to the item and connects the functionality
+            works for QPushButton, QComboBox , QCheckBox, QLabel objects
+
+        Args:
+            itm (QtWidgets.QTableWidgetItem): Item to set the widget
+        """
         try:
             track = self.get_track_of_item_in_table(itm)
             track_list = self.itemwidget_dict["track_list"]
             widget_list = self.itemwidget_dict["widget_list"]
             for tr, iw in zip(track_list, widget_list):
-                if self.is_same_list(track, tr):
+                if self._is_same_list(track, tr):
 
                     self.tablewidgetobj.setCellWidget(itm.row(), itm.column(), iw)
                     # itm.setWidget(iw)
@@ -372,71 +440,96 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                     # print('iw {}'.format(type(iw)))
                     if isinstance(iw, QtWidgets.QPushButton):
                         # print('Connected Buton')
-                        iw.clicked.connect(lambda: self.itembuttonclicked(track))
+                        iw.clicked.connect(lambda: self._item_button_clicked(track))
                     elif isinstance(iw, QtWidgets.QComboBox):
-                        iw.currentIndexChanged.connect(lambda: self.itemcomboboxindexchanged(iw, track=track))
+                        iw.currentIndexChanged.connect(lambda: self._item_combobox_indexchanged(iw, track=track))
                     elif isinstance(iw, QtWidgets.QCheckBox):
-                        iw.stateChanged.connect(lambda: self.itemcheckboxchecked(iw, track))
+                        iw.stateChanged.connect(lambda: self._item_checkbox_checked(iw, track))
                     elif isinstance(iw, QtWidgets.QLabel):
-                        # self.tablewidgetobj.itemDoubleClicked.connect(self.doubleclick_on_item)
+                        # self.tablewidgetobj.itemDoubleClicked.connect(self._doubleclick_on_item)
                         if self.resizetocontents:
                             self.tablewidgetobj.resizeColumnToContents(itm.column())
                             self.tablewidgetobj.resizeRowToContents(itm.row())
                     break
-        except Exception as e:
-            print("set_widget_to_item error--->", e)
-            pass
+        except (AttributeError, TypeError):
+            log.error("Setting widget_list to item")
 
-    def set_icon_to_item(self, itm: QtWidgets.QTableWidgetItem):
+        # except Exception as e:
+        #    print("_set_widget_to_item error--->", e)
+        #
+
+    def _set_icon_to_item(self, itm: QtWidgets.QTableWidgetItem):
+        """Sets icon in icon_dict to item
+
+        Args:
+            itm (QtWidgets.QTableWidgetItem): Item in Table
+        """
         try:
             track = self.get_track_of_item_in_table(itm)
             track_list = self.icon_dict["track_list"]
             icon_list = self.icon_dict["icon_list"]
             for tr, ic in zip(track_list, icon_list):
-                if self.is_same_list(track, tr):
+                if self._is_same_list(track, tr):
                     itm.setIcon(ic)
-        except:
-            pass
+        except (AttributeError, TypeError):
+            log.error("Setting icon_list to item")
 
-    def set_rolevalue_to_item(self, itm: QtWidgets.QTableWidgetItem):
+    def _set_rolevalue_to_item(self, itm: QtWidgets.QTableWidgetItem):
+        """Sets rolevalues in itemrolevalue_dict to item
+
+        Args:
+            itm (QtWidgets.QTableWidgetItem): Item in Table
+        """
         try:
             track = self.get_track_of_item_in_table(itm)
             track_list = self.itemrolevalue_dict["track_list"]
             role_list = self.itemrolevalue_dict["role_list"]
             value_list = self.itemrolevalue_dict["value_list"]
             for tr, role, value in zip(track_list, role_list, value_list):
-                if self.is_same_list(track, tr):
+                if self._is_same_list(track, tr):
                     itm.setData(role, value)
-        except:
-            pass
+        except (AttributeError, TypeError):
+            log.error("Setting rolevalue to item")
 
-    def set_backgroundcolor_to_item(self, itm: QtWidgets.QTableWidgetItem):
+    def _set_backgroundcolor_to_item(self, itm: QtWidgets.QTableWidgetItem):
+        """Sets backgrounds in backgroundcolor_dict to item
+
+        Args:
+            itm (QtWidgets.QTableWidgetItem): Item in Table
+        """
         try:
             track = self.get_track_of_item_in_table(itm)
             track_list = self.backgroundcolor_dict["track_list"]
             color_list = self.backgroundcolor_dict["color_list"]
             for tr, ic in zip(track_list, color_list):
-                if self.is_same_list(track, tr):
+                if self._is_same_list(track, tr):
                     itm.setBackground(ic)
-        except:
-            pass
+        except (AttributeError, TypeError):
+            log.error("Setting backgroundcolor to item")
 
-    def set_tooltiptext(self, itm: QtWidgets.QTableWidgetItem):
+    def _set_tooltiptext_to_item(self, itm: QtWidgets.QTableWidgetItem):
+        """Sets tooltiptext in tooltip_dict to item.
+        if limited_selection mask exists will write the selection options.
+        Selection options are overwritten with tooltip_dict.
+
+        Args:
+            itm (QtWidgets.QTableWidgetItem): Item in Table
+        """
         reslist, resvallist = self.get_item_restriction_resval(itm)
         for res, resval in zip(reslist, resvallist):
             if res in ["limited_selection", "is_list_item_limited_selection"]:
-                itm.setToolTip("Options: {}".format(resval))
+                itm.setToolTip(f"Options: {resval}")
         try:
             track = self.get_track_of_item_in_table(itm)
             track_list = self.tooltip_dict["track_list"]
             tooltip_list = self.tooltip_dict["tooltip_list"]
             for tr, itt in zip(track_list, tooltip_list):
-                if self.is_same_list(track, tr):
+                if self._is_same_list(track, tr):
                     itm.setToolTip(itt)
-        except:
-            pass
+        except (AttributeError, TypeError):
+            log.error("Setting ToolTiptext to item")
 
-    def tablewidget_onclick(self, index: QtCore.QModelIndex):
+    def _tablewidget_onclick(self, index: QtCore.QModelIndex):
         """Onclick method on table widget restores or edits the item
 
         Args:
@@ -447,18 +540,18 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         if self.resizetocontents:
             self.tablewidgetobj.resizeColumnToContents(mycol)
         itm = self.tablewidgetobj.itemFromIndex(index)
-        self.set_icon_to_item(itm)
-        self.set_widget_to_item(itm)
-        self.set_tooltiptext(index)
+        self._set_icon_to_item(itm)
+        self._set_widget_to_item(itm)
+        self._set_tooltiptext_to_item(index)
         if mycol in self.restore_column_list:
-            self.restore_a_tablewidget_item(index)
+            self._restore_a_tablewidget_item(index)
         else:
             val_ = itm.text()
             if self.check_restrictions.str_to_bool_or_none(val_) in [True, False]:
-                self.set_checkbox_value(itm)
-            self.edit_a_table_widget_item(index)
+                self._set_checkbox_value_to_item(itm)
+            self._edit_a_table_widget_item(index)
 
-    def set_checkbox_value(self, valueitem: QtWidgets.QTableWidgetItem):
+    def _set_checkbox_value_to_item(self, valueitem: QtWidgets.QTableWidgetItem):
         """Sets checkstate on checkbox when item is a boolean
 
         Args:
@@ -469,8 +562,16 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         else:
             valueitem.setCheckState(False)
 
-    def get_item_from_colpos(self, colpos: int):
-        for iii in self.tableitems:
+    def get_columnname_from_colpos(self, colpos: int) -> str:
+        """Get an item from the column position
+
+        Args:
+            colpos (int): column position
+
+        Returns:
+            : item
+        """
+        for iii in self.table_items:
             cp = self.get_item_column_pos_in_table(iii)
             if cp == colpos:
                 return iii
@@ -500,6 +601,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         for iii, key in enumerate(self.show_dict):
             if iii == myrow:
                 return key
+        return None
 
     def get_track_of_item_in_table(self, anitem: QtWidgets.QTableWidgetItem) -> list:
         """Generates a track list of the item in the structure
@@ -516,16 +618,21 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             mycol = anitem.column()
             valkey = self.get_key_value_from_row(myrow)
             track.append(valkey)
-            track.append(self.get_item_from_colpos(mycol))
+            track.append(self.get_columnname_from_colpos(mycol))
         return track
 
-    def edit_a_table_widget_item(self, index: QtCore.QModelIndex):
-        # print('edit_a_table_widget_item',index)
+    def _edit_a_table_widget_item(self, index: QtCore.QModelIndex):
+        """Connects item to datachange fuction
+
+        Args:
+            index (QtCore.QModelIndex): item being edited
+        """
+        # print('_edit_a_table_widget_item',index)
         itm = self.tablewidgetobj.itemFromIndex(index)
         val = itm.text()
         # print('edit index set:',index.data())
         self._last_value_selected = val
-        self.tablewidgetobj.itemChanged.connect(lambda: self.Item_data_changed(index, val))
+        self.tablewidgetobj.itemChanged.connect(lambda: self._item_data_changed(index, val))
 
     # def get_list_of_tracks_of_children(self, parenttrack):
     #    self.get_gentrack_from_localtrack
@@ -554,31 +661,21 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                     for iii in range(modelobj.rowCount()):
                         itmindex = modelobj.index(iii, 0)
                         itm = modelobj.itemFromIndex(itmindex)
-                        if itm is not None:
-                            # log.info('got this-> {} search for {}'.format(itm.text(),tr))
-                            if tr == itm.text():
-                                break
-                        else:
-                            break
-                    if itm is None:
-                        break
-                    if tr != itm.text():  # not found
-                        break
+                        if not self._is_item_text(itm, tr):
+                            break  # item None or found
+                    # not found
+                    if not self._is_item_not_text(itm, tr):
+                        break  # item none or not found
                 else:
                     # log.info('the size -> {}'.format(modelobj.rowCount(parent)))
                     for iii in range(modelobj.rowCount(parent)):
                         itmindex = modelobj.index(iii, 0, parent)
                         itm = modelobj.itemFromIndex(itmindex)
-                        if itm is not None:
-                            # log.info('parent got this-> {} search for {}'.format(itm.text(),tr))
-                            if tr == itm.text():
-                                break
-                        else:
-                            break
-                    if itm is None:
-                        break
-                    if tr != itm.text():  # not found
-                        break
+                        if not self._is_item_text(itm, tr):
+                            break  # item None or found
+                    # not found
+                    if not self._is_item_not_text(itm, tr):
+                        break  # item none or not found
                 parent = itmindex
                 parentitm = modelobj.itemFromIndex(parent)
                 if parentitm.text() == "ID":
@@ -588,102 +685,142 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                 itmtrack.append(itm)
                 itmindextrack.append(itmindex)
             return itm, itmindex, itmtrack, itmindextrack
-        except Exception as e:
-            log.error("get item from track: {}".format(e))
+        except (ValueError, KeyError, TypeError, AttributeError) as e:
+            log.error("Get item from track: %s", e)
             return None, None, None, None
 
-    def Item_data_changed(self, index: QtCore.QModelIndex, val: any):
-        # if isinstance(index, QtCore.QModelIndex):
-        #    mycol = index.column()
-        #    myrow = index.row()
+    def _is_item_not_text(self, itm, tr):
+        """Helper function"""
+        try:
+            if tr != itm.text():
+                return False
+            return True
+        except AttributeError:
+            return False
+
+    def _is_item_text(self, itm, tr):
+        """Helper function"""
+        try:
+            if tr == itm.text():
+                return False
+            return True
+        except AttributeError:
+            return False
+
+    def _item_data_changed(self, index: QtCore.QModelIndex, val: any):
+        """If value has changed and item is editable, changes the value to new value
+        only when value check is conform to mask and type. If not, sets the old value.
+
+        Args:
+            index (QtCore.QModelIndex): index of item
+            val (any): new value to be set
+        """
         old_value = val  # self._last_value_selected
-        # print('tvf Item changed->',index.data(),' old value->',old_value)
         itm = self.tablewidgetobj.itemFromIndex(index)
         new_value = itm.text()
-        selindex = self.tablewidgetobj.selectedIndexes()
-        # icol=self.get_item_column_pos_in_table('Item')
-        # tcol=self.get_item_column_pos_in_table('Type')
-        # self.set_item_style(self.tablewidgetobj.item(itm.row(),icol)) # column item
-        if new_value != old_value and old_value is not None and index in selindex:
+        # self._set_item_style(self.tablewidgetobj.item(itm.row(),icol)) # column item
+        if new_value != old_value and old_value is not None and index in self.tablewidgetobj.selectedIndexes():
             # indextype=index.siblingAtColumn(tcol)
             # typeitem=self.tablewidgetobj.itemFromIndex(indextype)
             track = self.get_track_of_item_in_table(self.tablewidgetobj.itemFromIndex(index))
             # Here check if value is ok if yes
-            valisok = self.check_item_value_for_edit(index, new_value, old_value, self.show_dict)
-            log.info("Data changed -> New:{} Old:{} Track: {} isvalid: {}".format(new_value, old_value, track, valisok))
-            if valisok == True:
-                subtype = ""
-                # if self.is_item_supposed_to_be_a_list(itm)==True:
-                # gentrack=self.get_gentrack_from_localtrack(track)
-                #    subtype=self.get_listitem_subtype(track)#gentrack)
-                thetype, subtype = self.get_item_supposed_type_subtype(itm)
-                new_valwt = self.set_type_to_value(
+            valisok = self.check_item_value_for_edit(index, new_value)
+            log.info("Data changed -> New:%s Old:%s Track: %s isvalid: %s", new_value, old_value, track, valisok)
+            subtype = ""
+            if valisok:
+                thetype, subtype = self._get_item_supposed_type_subtype(itm)
+                new_valwt = self.check_restrictions.set_type_to_value(
                     new_value, thetype, subtype
                 )  # Send value with correct type to dictionary
-                # _=self.set_tracked_value_to_dict(gentrack,new_valwt,self.data_struct,subtype,False) #doing it inside
-                refreshtableWidget, self.show_dict = self.set_tracked_value_to_dict(
+                do_refresh_tablewidget, self.show_dict = self.set_tracked_value_to_dict(
                     track, new_valwt, self.show_dict, subtype
                 )
-                if refreshtableWidget == False:
+                if not do_refresh_tablewidget:
                     itm.setText(new_value)
-                    if thetype == str(type(True)):
-                        self.set_checkbox_value(itm)
-                else:
-                    self.refresh_tablewidget(
-                        self.show_dict, self.modelobj, self.tablewidgetobj
-                    )  # need to refresh only if value is changed
-                # Here send signal to refresh
-                self.signal_data_change(track, new_value, thetype, subtype)
-            else:
-                subtype = ""
-                thetype, subtype = self.get_item_supposed_type_subtype(itm)
+                    if thetype == str(bool):
+                        self._set_checkbox_value_to_item(itm)
+                else:  # need to refresh only if value is changed
+                    self.refresh_tablewidget(self.show_dict, self.modelobj, self.tablewidgetobj)
+                # Here send signal data has changed
+                self._data_change(track, new_value, thetype, subtype)
+            else:  # reset old value
+                thetype, subtype = self._get_item_supposed_type_subtype(itm)
                 typestr = thetype
-                if typestr == str(type([])):
+                if typestr == str(list):
                     gentrack = self.get_gentrack_from_localtrack(track)  # <-track is local!
-                    subtype = self.get_listitem_subtype(gentrack)
-                old_valwt = self.set_type_to_value(
-                    old_value, thetype, subtype
-                )  # Send value with correct type to dictionary
-                refreshtableWidget, self.show_dict = self.set_tracked_value_to_dict(
+                    subtype = self._get_listitem_subtype(gentrack)
+                # Send value with correct type to dictionary
+                old_valwt = self.check_restrictions.set_type_to_value(old_value, thetype, subtype)
+                do_refresh_tablewidget, self.show_dict = self.set_tracked_value_to_dict(
                     track, old_valwt, self.show_dict, subtype
                 )
                 itm.setText(old_value)
-                if thetype == str(type(True)):
-                    self.set_checkbox_value(itm)
-        # reset old value
+                if thetype == str(bool):
+                    self._set_checkbox_value_to_item(itm)
+
         self._last_value_selected = None
 
-    def is_item_supposed_to_be_a_list(self, itm: QtWidgets.QTableWidgetItem):
+    def _is_item_supposed_to_be_a_list(self, itm: QtWidgets.QTableWidgetItem) -> bool:
+        """Responds if Item is supposed to be a list or not looking at the mask
+
+        Args:
+            itm (QtWidgets.QTableWidgetItem): Item
+
+        Returns:
+            bool: True if Item should be a List
+        """
         reslist, resvallist = self.get_item_restriction_resval(itm)
         for res, resval in zip(reslist, resvallist):
-            if "is_list_item_" in res or (res == "is_value_type" and resval == str(type([]))):
+            if "is_list_item_" in res or (res == "is_value_type" and resval == str(list)):
                 return True
         return False
 
-    def horizontalheaderclicked(self, index):
-        print("horizontalheaderclicked", index)
+    def _horizontalheaderclicked(self, index):
+        """
+        click test
+        """
+        print("_horizontalheaderclicked", index)
 
-    def verticalheaderclicked(self, index):
-        print("verticalheaderclicked", index)
+    def _verticalheaderclicked(self, index):
+        """
+        click test
+        """
+        print("_verticalheaderclicked", index)
 
-    def get_item_supposed_type_subtype(self, itm: QtWidgets.QTableWidgetItem):
+    def _get_item_supposed_type_subtype(self, itm: QtWidgets.QTableWidgetItem) -> tuple[str, str]:
+        """Gets items type and subtype
+
+        Args:
+            itm (QtWidgets.QTableWidgetItem): item
+
+        Returns:
+            tuple[str,str]: type and subtype of item
+        """
         subtype = ""
-        thetype = str(type(""))
+        thetype = str(str)
         reslist, resvallist = self.get_item_restriction_resval(itm)
-        if self.is_item_supposed_to_be_a_list(itm) == False:
+        if not self._is_item_supposed_to_be_a_list(itm):
             for res, resval in zip(reslist, resvallist):
                 if res == "is_value_type":
                     thetype = resval
                     break
         else:
-            thetype = str(type([]))
+            thetype = str(list)
             for res, resval in zip(reslist, resvallist):
                 if res == "is_list_item_type":
                     subtype = resval
                     break
         return thetype, subtype
 
-    def get_listitem_subtype(self, track):
+    def _get_listitem_subtype(self, track: list) -> str:
+        """Finds subtype for item in track from mask
+
+        Args:
+            track (list): track of item
+
+        Returns:
+            str: subtype
+        """
         mask = self.get_mask_for_item(track)
         # log.info('Got for subtype: {} {}'.format(track,mask))
         for mmm in mask:
@@ -694,52 +831,23 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                     return mask[keyval]
         return ""
 
-    def set_type_to_value(self, val, typestr, subtype=""):
-        if typestr == str(type(1)):
-            try:
-                tyval = int(val)
-            except:
-                tyval = str(val)
-        elif typestr == str(type(0.1)):
-            try:
-                tyval = float(val)
-            except:
-                tyval = str(val)
-        elif typestr == str(type(True)):
-            try:
-                if val in ["1", "True", "true", "yes", "Yes"]:
-                    tyval = True
-                elif val in ["0", "False", "false", "no", "No"]:
-                    tyval = False
-                else:
-                    tyval = int(val)
-            except:
-                tyval = str(val)
-        elif typestr == str(type([])):
-            try:
-                split = self.str_to_list(val)
-                if split is not None:
-                    tyval = []
-                    for iii in split:
-                        if subtype == str(type(0.1)):
-                            iiival = float(iii)
-                        elif subtype == str(type(0)):
-                            iiival = int(iii)
-                        elif subtype == str(type("")):
-                            iiival = str(iii)
-                        else:
-                            iiival = iii
-                        tyval.append(iiival)
-                else:
-                    tyval = str(val)
-            except:
-                tyval = str(val)
-        else:
-            tyval = str(val)
-        return tyval
+    def set_tracked_value_to_dict(
+        self, track: list, val: any, dict_struct: any, subtype: str, emitsignal: bool = True
+    ) -> tuple[bool, any]:
+        """Track in the dictionary the item and set the value
 
-    def set_tracked_value_to_dict(self, track, val, dict_struct, subtype, emitsignal=True):
-        refreshtableWidget = False
+        Args:
+            track (list): Track list for setting value
+            val (any): value to be set
+            dict_struct (any): the data struct
+            subtype (str): subtype of list values
+            emitsignal (bool, optional): Emit signal when value is set. Defaults to True.
+
+        Returns:
+            bool: data changed needs to refresh table widget
+            any: data struct with new data
+        """
+        do_refresh_tablewidget = False
         trlist = track.copy()
         selected = {}
         if isinstance(dict_struct, list):
@@ -747,31 +855,21 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                 if a_data["ID"] == trlist[0]:
                     trlist.pop(0)
                     selected = a_data  # .copy() #select dictionary
-                    while len(trlist) > 1:
-                        try:
-                            selected = selected[trlist[0]]
-                            trlist.pop(0)
-                        except:
-                            break
+                    selected, trlist = self._get_selected_tracklist_one_item(selected, trlist)
                     # last tracked is variable
                     if len(trlist) == 1:
                         selected.update({trlist[0]: val})
                         # Change title of Data special case
                         # log.debug('setvaltodict_struct Here {} set to {}'.format(trlist[0],val))
                         if trlist[0] == "ID" and len(track) == 2:
-                            refreshtableWidget = True
-                        if emitsignal == True:
+                            do_refresh_tablewidget = True
+                        if emitsignal:
                             trackstruct = track
-                            self.signal_data_change(trackstruct, str(val), str(type(val)), subtype)  # refresh on main
+                            self._data_change(trackstruct, str(val), str(type(val)), subtype)  # refresh on main
                         break
         elif isinstance(dict_struct, dict):
             selected = dict_struct  # .copy() #select dictionary
-            while len(trlist) > 1:
-                try:
-                    selected = selected[trlist[0]]
-                    trlist.pop(0)
-                except:
-                    break
+            selected, trlist = self._get_selected_tracklist_one_item(selected, trlist)
             # last tracked is variable
             if len(trlist) == 1:
                 selected.update({trlist[0]: val})
@@ -779,17 +877,35 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                 # update
                 trackstruct = track.copy()
                 _, self.data_struct = self.set_tracked_value_to_dict(trackstruct, val, self.data_struct, subtype)
-                if emitsignal == True:
-                    self.signal_data_change(trackstruct, str(val), str(type(val)), subtype)  # refresh on main
-        return refreshtableWidget, dict_struct
+                if emitsignal:
+                    self._data_change(trackstruct, str(val), str(type(val)), subtype)  # refresh on main
+        return do_refresh_tablewidget, dict_struct
 
-    def get_track_struct_from_dict_track(self, dict_, track):
-        if isinstance(dict_, dict):
-            if self.data_id is not None:
-                endtrack = [self.data_id].append(track)
-                # print ('ini_track->',track,'endtrack->',endtrack)
-                return endtrack
-        return track
+    # def get_track_struct_from_dict_track(self, dict_, track):
+    #     if isinstance(dict_, dict):
+    #         if self.data_id is not None:
+    #             endtrack = [self.data_id].append(track)
+    #             # print ('ini_track->',track,'endtrack->',endtrack)
+    #             return endtrack
+    #     return track
+
+    def _get_selected_tracklist_one_item(self, selected: dict, trlist: list) -> tuple[dict, list]:
+        """Helper function to reduce the selected track to 1 item
+
+        Args:
+            selected (dict): dict
+            trlist (list): track list
+
+        Returns:
+            tuple[dict,list]: dict with track[0], 1 value list of track[0]
+        """
+        while len(trlist) > 1:
+            try:
+                selected = selected[trlist[0]]
+                trlist.pop(0)
+            except (KeyError, IndexError):
+                break
+        return selected, trlist
 
     def check_item_value_for_edit(self, index: QtCore.QModelIndex, val: any, isok=True) -> bool:
         """Check that the new value is conform to restrictions
@@ -806,10 +922,19 @@ class TableWidgetFunctions(QtWidgets.QWidget):
 
         isok = self.check_item_by_mask(index, val, isok)
         # print('bymask isok=',isok)
-        log.debug("bymask isok={}".format(isok))
+        log.debug("bymask isok = %s", isok)
         return isok
 
     def get_item_restriction_resval(self, itm: QtWidgets.QTableWidgetItem):
+        """Get item's restriction and restriction value
+
+        Args:
+            itm (QtWidgets.QTableWidgetItem): item
+
+        Returns:
+            list: restriction list
+            list: restriction value list
+        """
         track = self.get_track_of_item_in_table(itm)
         itmmask = self.get_mask_for_item(track)
         if itmmask == {}:
@@ -865,21 +990,38 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                     # print('Check restriction',restriction,'---->',restrictionval)
                     isok = self.check_restrictions.checkitem_value_with_mask(restriction, restrictionval, val)
                     if restriction == "is_unique" and "ID" in track:
-                        idlist = self.get_ID_list()
+                        idlist = self.get_id_list()
                         if val in idlist:
                             isok = False
-                    if isok == False:
-                        log.info("{} {} returned False".format(track, keyname))
+                    if not isok:
+                        log.info("%s %s returned False", track, keyname)
                         break
         return isok
 
-    def get_ID_list(self):
-        IDlist = []
-        for aaa in self.data_struct:
-            IDlist.append(aaa["ID"])
-        return IDlist
+    def get_id_list(self) -> list:
+        """Gets the id list for data_struct = [Datastruct1,...,DatastructN]
+        where each DatastructX has 'ID' key.
 
-    def get_mask_for_item(self, track):
+        Returns:
+            list: list of IDs
+        """
+        id_list = []
+        try:
+            for aaa in self.data_struct:
+                id_list.append(aaa["ID"])
+        except KeyError:
+            id_list = []
+        return id_list
+
+    def get_mask_for_item(self, track: list) -> dict:
+        """Gets the mask for the item in the track
+
+        Args:
+            track (list): Track list of item
+
+        Returns:
+            dict: Mask dictionary for the specific item
+        """
         maskstruct = self.data_struct_mask
         if len(maskstruct) == 0:
             return {}
@@ -897,18 +1039,16 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                 new_track.append(tr)
                 try:
                     val = self.get_tracked_value_in_struct(new_track, maskdict)
-                except:
+                except (KeyError, ValueError, TypeError):
                     val = None
-                    pass
                 if val is None:
                     last = len(new_track) - 1
                     new_track.pop(last)
                     new_track.append("__any__")
                     try:
                         val = self.get_tracked_value_in_struct(new_track, maskdict)
-                    except:
+                    except (KeyError, ValueError, TypeError):
                         val = None
-                        pass
                     if val is None:
                         mask = {}
                         break
@@ -921,8 +1061,17 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         return mask
 
     def str_to_list(self, astr: str) -> list:
+        """Converts a string with list format into a list
+
+        Args:
+            astr (str): string
+
+        Returns:
+            list: List. None if the String has not the correct format
+        """
         try:
             rema = re.search(r"^\[(.+,)*(.+)?\]$", astr)
+            splited = None
             if rema.group() is not None:
                 sss = astr.strip("[")
                 sss = sss.strip("]")
@@ -931,16 +1080,21 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                 sss = sss.strip()  # spaces
                 # sss=sss.strip("'")
                 splited = sss.split(",")
-                return splited
+            return splited
         except AttributeError:
             return None
 
-    def restore_a_tablewidget_item(self, index: QtCore.QModelIndex):
+    def _restore_a_tablewidget_item(self, index: QtCore.QModelIndex):
+        """Restores the value of an item
+
+        Args:
+            index (QtCore.QModelIndex): item index_
+        """
         itm = self.tablewidgetobj.itemFromIndex(index)
         # column = itm.column()
         track = self.get_track_of_item_in_table(self.tablewidgetobj.itemFromIndex(index))
         value = self.get_tracked_value_in_struct(track, self.data_struct)
-        print("Restored {} to {}".format(track, value))
+        log.info("Restored %s to %s", track, value)
         itm.setText(str(value))
 
     def import_data_to_tablewidget(
@@ -960,17 +1114,25 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                 newdict = {}
                 try:
                     newdict.update({adict["ID"]: adict})
-                except:
+                except KeyError:
                     pass
                 self.dict_to_table(newdict, modelobj, tablewidgetobj, myparent=None)
-            return newdict
+            # return newdict
         elif isinstance(data, dict):
             self.dict_to_table(data, modelobj, tablewidgetobj, myparent="Data")
 
     def create_data_model_tablewidget(
-        self, tableWidgetparent: QtWidgets.QTableWidget, emitsignal=False
+        self, table_widget_parent: QtWidgets.QTableWidget, emitsignal=False
     ) -> QtCore.QAbstractItemModel:
+        """Creates a model object for the table widget
 
+        Args:
+            table_widget_parent (QtWidgets.QTableWidget): the table widget
+            emitsignal (bool, optional): Emit signals when values are set. Defaults to False.
+
+        Returns:
+            QtCore.QAbstractItemModel: Model object
+        """
         if isinstance(self.show_dict, dict):
             data_dict = self.show_dict
             colcount = len(data_dict)
@@ -980,25 +1142,35 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         tableitems = []
         tableitems = self.get_table_item_list(data_dict)
         # Set Item,Value and Type to all items, set all dict entries to all items
-        data_dict, tableitems = self.get_minimumreqs_in_dict(data_dict, tableitems)
-        self.show_dict = data_dict
-        self.tableitems = tableitems
+        self.show_dict, self.table_items = self.get_minimumreqs_in_dict(data_dict, tableitems)
         self.set_tracked_value_to_dict(
-            self.reference_track, data_dict, self.data_struct, subtype="", emitsignal=emitsignal
+            self.reference_track, self.show_dict, self.data_struct, subtype="", emitsignal=emitsignal
         )
 
-        rowcount = len(tableitems)
+        rowcount = len(self.table_items)
         # Row count
-        tableWidgetparent.setRowCount(rowcount)
+        table_widget_parent.setRowCount(rowcount)
         # Column count
-        tableWidgetparent.setColumnCount(colcount)
-        model = tableWidgetparent.model()
-        for iii, t_item in enumerate(tableitems):
+        table_widget_parent.setColumnCount(colcount)
+        model = table_widget_parent.model()
+        for iii, t_item in enumerate(self.table_items):
             model.setHeaderData(iii, QtCore.Qt.Horizontal, t_item)
-        # tableWidgetparent.setModel(model)
+        # table_widget_parent.setModel(model)
         return model
 
-    def get_minimumreqs_in_dict(self, data_dict, tableitems):
+    def get_minimumreqs_in_dict(self, data_dict: any, tableitems: list[str]) -> tuple[dict, list[str]]:
+        """Sets a dictionary with minimum requirements
+            for setting a model object. if data_dict is empty is used a default dictionary
+            with 'Value' because empty models are not allowed. Returns a constructed dict
+            usable in a modelobject.
+        Args:
+            data_dict (any): actual data structure
+            tableitems (list): items in the tablewidget
+
+        Returns:
+            dict: new show_dictionary
+            list: new table items list
+        """
         if len(tableitems) == 0:
             if "Value" not in tableitems:
                 tableitems.append("Value")
@@ -1006,7 +1178,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         for tbi in tableitems:
             tableitemsnivt.append(tbi)
         new_d_dict = {}
-        for iii, data in enumerate(data_dict):
+        for data in data_dict:
             nd = {}
             ddd = data_dict[data]
             items = self.get_dict_key_list(ddd)
@@ -1021,15 +1193,32 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         new_d_items = self.get_table_item_list(new_d_dict)
         return new_d_dict, new_d_items
 
-    def get_table_item_list(self, new_d_dict, positem=0):
+    def get_table_item_list(self, new_d_dict: dict, positem=0) -> list[str]:
+        """Get a list of items at position of a dictionary
+
+        Args:
+            new_d_dict (dict): new data dictionary
+            positem (int, optional): position of item. Defaults to 0.
+
+        Returns:
+            list[str]: list of items
+        """
         new_d_items = []
         if len(new_d_dict) > 0:
             ndl = self.get_dict_key_list(new_d_dict)
             new_d_items = self.get_dict_key_list(new_d_dict[ndl[positem]])
         return new_d_items
 
-    def get_item_column_pos_in_table(self, item: QtWidgets.QTableWidgetItem):
-        for iii, itm in enumerate(self.tableitems):
+    def get_item_column_pos_in_table(self, item: QtWidgets.QTableWidgetItem) -> int:
+        """Gets Column position of an item
+
+        Args:
+            item (QtWidgets.QTableWidgetItem): item
+
+        Returns:
+            int: column position, None if not found
+        """
+        for iii, itm in enumerate(self.table_items):
             if itm == item:
                 return iii
         return None
@@ -1053,25 +1242,24 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             if parent in key_list:
                 self.dict_to_table(adict[parent], modelobj, tablewidgetobj, myparent=parent)
             return
-        else:
-            parent = myparent
+        parent = myparent
 
         # Row count
         tablewidgetobj.setRowCount(len(key_list))
         # Column count
-        tablewidgetobj.setColumnCount(len(self.tableitems))
+        tablewidgetobj.setColumnCount(len(self.table_items))
         # Set header labels
-        tablewidgetobj.setHorizontalHeaderLabels(self.tableitems)
+        tablewidgetobj.setHorizontalHeaderLabels(self.table_items)
         tablewidgetobj.setVerticalHeaderLabels(key_list)
-        # tablewidgetobj.horizontalHeader().clicked.connect(lambda: self.horizontalheaderclicked)
-        # tablewidgetobj.verticalHeader().clicked.connect(lambda: self.verticalheaderclicked)
+        # tablewidgetobj.horizontalHeader().clicked.connect(lambda: self._horizontalheaderclicked)
+        # tablewidgetobj.verticalHeader().clicked.connect(lambda: self._verticalheaderclicked)
         rowpos = 0
         for akey in key_list:
             table_line = adict[akey]
             # val_item=table_line['Item']
             # val_value =table_line['Value']
             # val_type=str(type(val_value))
-            for ttt in self.tableitems:
+            for ttt in self.table_items:
                 val_ = table_line[ttt]
                 # if ttt =='Type':
                 #    val_=val_type
@@ -1083,13 +1271,13 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                 tablewidgetobj.resizeColumnToContents(colpos)
                 if self.check_restrictions.str_to_bool_or_none(val_) in [True, False]:
                     if isinstance(val_, bool):
-                        self.set_checkbox_value(at_item)
+                        self._set_checkbox_value_to_item(at_item)
                     # Add tooltip text
-                self.set_tooltiptext(at_item)
-                self.set_icon_to_item(at_item)
-                self.set_backgroundcolor_to_item(at_item)
-                self.set_widget_to_item(at_item)
-                self.set_rolevalue_to_item(at_item)
+                self._set_tooltiptext_to_item(at_item)
+                self._set_icon_to_item(at_item)
+                self._set_backgroundcolor_to_item(at_item)
+                self._set_widget_to_item(at_item)
+                self._set_rolevalue_to_item(at_item)
 
             rowpos = rowpos + 1
             # modelobj = tablewidgetobj.model()
@@ -1157,7 +1345,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         Returns:
             int: maximum depth
         """
-        if isinstance(adict, dict) == False and isinstance(adict, list) and depth == 0:
+        if isinstance(adict, dict) is False and isinstance(adict, list) and depth == 0:
             for iii in adict:
                 adepth = self.get_dict_max_depth(iii, 0)
                 if depth >= maxdepth:  # ???? not maxdepth = max(maxdepth, adepth)
