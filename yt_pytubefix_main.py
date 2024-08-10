@@ -24,17 +24,17 @@ import yaml
 import requests
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from genericpath import isfile
+from operator import index
+
 import class_file_dialogs
 import class_table_widget_functions
 import class_pytubefix_use
 import yt_pytubefix_gui
-from genericpath import isfile
-from operator import index
 
 # import datetime
 # import json
 # import re
-a_dialog = None
 # Setup Logger
 # set up logging to file - see previous section for more details
 log = logging.getLogger("")  # root logger
@@ -71,29 +71,49 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.a_dialog = class_file_dialogs.Dialogs()
+        self.app_path = ""
+        self.general_config = {}
+        self.download_path = ""
+        self.url_struct = {}
+        self.url_id_counter = 0
+        self.ongoing_download_url = None
+        self.ongoing_download_title = None
+        self.url_struct_mask={}
 
     def start_up(self):
         """Start the UI first to get all objects in"""
         log.info("UI started!")
         # Initial conditions variables
-        self.app_path = a_dialog.get_app_path()
+        self.app_path = self.a_dialog.get_app_path()
         self.general_config = self.get_general_config()
         try:
-            self.download_path = self.general_config["Last_Path_for_Download"]
+            self.download_path = self.general_config["Last_Path_for_Download"][0]
             if not os.path.exists(self.download_path):
                 self.download_path = self.app_path
         except (TypeError, KeyError):
             self.download_path = self.app_path
         self.url_struct = {}
+        self.url_struct_mask={
+                    "__any__": {
+                        "Index": {'__m__1':"is_unique",'__mv__1':""},
+                        "Title": {'__m__1':"is_value_type",'__mv__1':str(str)},
+                        "URL": {'__m__1':"is_value_type",'__mv__1':str(str),
+                                '__m__2':"is_not_change",'__mv__2':""},
+                        "DL Enable": {'__m__1':"is_value_type",'__mv__1':str(bool)},
+                        "MP3": {'__m__1':"is_value_type",'__mv__1':str(bool)},
+                        # "DL Button": "",
+                    },
+                }
         self.url_id_counter = 0
         self.ongoing_download_url = None
         self.ongoing_download_title = None
 
-    def setup_ui2(self, main_window):
+    def setup_ui2(self, amain_window: QtWidgets.QMainWindow):
         """Start main
 
         Args:
-            main_window (QWidget): Mainwindow Object From Mywindow Class
+            amain_window (QtWidgets.QMainWindow): Mainwindow Object From Mywindow Class
             Modifies the closing event.
         """
         # Add objects by code here additional to objects in GUI_PostProcessing
@@ -109,19 +129,19 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         if file_exists:
             self.icon_main_pixmap = QtGui.QPixmap(path_to_file)
             self.icon_main = QtGui.QIcon(QtGui.QPixmap(path_to_file))
-            main_window.setWindowIcon(self.icon_main)
+            amain_window.setWindowIcon(self.icon_main)
 
         # set the title
-        main_window.setWindowTitle("Gui for pytubefix by " + __author__ + " V" + __version__)
-        # main_window.showMaximized()
+        amain_window.setWindowTitle("Gui for pytubefix by " + __author__ + " V" + __version__)
+        # amain_window.showMaximized()
 
         # -----------TableWidgetFunctions
 
         self.twf = class_table_widget_functions.TableWidgetFunctions(
-            self.tableWidget_url, self.url_struct, {}, None, []
+            self.tableWidget_url, self.url_struct, self.url_struct_mask, None, []
         )
         # self.model=self.twf.modelobj
-        # self.twf.data_change[list,str,str,str].connect(self.refresh_dialog_treeview)
+        self.twf.signal_data_change[list,str,str,str].connect(self._table_widget_data_changed)
         # self.icons_dict={'Plots':self.icon_main}
 
         # self.tvf.Expand_to_Depth(1)
@@ -138,8 +158,22 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         # self._set_splitter_pos(400,1/3) #initial position
         # --------------
         self._set_path_labels()
-        a_dialog.set_default_dir(self.app_path)
+        self.a_dialog.set_default_dir(self.app_path)
         self._connect_actions()
+
+    def _table_widget_data_changed(self, track: list[str], val: any, valtype: str, subtype: str):
+        """Sets the changed information in table widget by user into the Structure
+
+        Args:
+            track (list[str]): _description_
+            val (any): _description_
+            valtype (str): _description_
+            subtype (str): _description_
+        """
+        # print("before: %s",self.url_struct)
+        processed_val=self.twf.check_restrictions.set_type_to_value(val,valtype,subtype)
+        self.twf.set_tracked_value_to_dict(track,processed_val,self.url_struct,subtype,False)
+        log.debug("after: %s",self.url_struct)
 
     def pytubefix_download_progress(self, progress_list: list):
         """
@@ -184,7 +218,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         """
         if "error" in log_msg.lower():
             if self.ongoing_download_title:
-                log.error(f"Error while downloading {self.ongoing_download_title}")
+                log.error("Error while downloading %s", self.ongoing_download_title)
                 self.ongoing_download_title = None
                 self.ongoing_download_url = None
             log.error(log_msg)
@@ -206,18 +240,18 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         """
         path_config = ""
         try:
-            with open(path_config_file) as file:
+            with open(path_config_file, encoding="UTF-8") as file:
                 path_config = yaml.load(file, Loader=yaml.SafeLoader)
                 log.info("Environment configuration loaded")
                 self.path_config_file = path_config_file
         except FileNotFoundError:
-            log.error("Environment configuration file not found at " + path_config_file)
-            a_dialog.send_critical_msgbox(
+            log.error("Environment configuration file not found at %s", path_config_file)
+            self.a_dialog.send_critical_msgbox(
                 "Configuration File not Found!", "Please select location of configuration File"
             )
-            errpath = a_dialog.open_file_dialog("7")  # 7->yml Files (*.yml)
+            errpath = self.a_dialog.open_file_dialog("7")  # 7->yml Files (*.yml)
             if errpath is None:
-                with open(errpath) as file:
+                with open(errpath, encoding="UTF-8") as file:
                     path_config = yaml.load(file, Loader=yaml.SafeLoader)
                     log.info("Environment configuration loaded")
                     log.warning("Save configuration path as %s to not be prompted for a file", self.default_config_path)
@@ -232,10 +266,9 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         """
         Connect all objects
         """
-        """      
-        #right click menu
-        self.treeView.customContextMenuRequested.connect(self.listItemRightClicked)  
-        """
+        # right click menu
+        # self.treeView.customContextMenuRequested.connect(self.listItemRightClicked)
+
         self.lineEdit_url.textChanged.connect(self._lineedit_url_changed)
         self.actionAbout.triggered.connect(self.show_aboutbox)
         self.actionSet_Path.triggered.connect(self.Set_download_Path)
@@ -250,10 +283,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         # slow html check
         if not is_valid:
             return
-        try:
-            urlexists = self.does_url_exist(self.lineEdit_url.text())
-        except:
-            urlexists = False
+        urlexists = self.does_url_exist(self.lineEdit_url.text())
         if urlexists:
             # passed checks
             self.add_item_to_url_struct(self.lineEdit_url.text())
@@ -274,6 +304,15 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         return False
 
     def get_unique_id(self, desired_id):
+        """Gets a unique id
+        if None will give a "UID_#" value is not taken
+
+        Args:
+            desired_id (_type_): wanted id
+
+        Returns:
+            str: An id which is not taken.
+        """
         if self.is_id_taken(desired_id) == False and desired_id != "" and desired_id != None:
             return desired_id
 
@@ -311,13 +350,33 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.twf.set_show_dict()
         self.twf.refresh_tablewidget(self.twf.show_dict, self.twf.modelobj, self.twf.tablewidgetobj)
 
+    def _get_request_exceptions_tuple(self) -> tuple:
+        """Get exceptions from resource package
+
+        Returns:
+            tuple: tuple of exceptions
+        """
+        exception_list_ini = dir(requests.exceptions)
+        exception_list = []
+        for except_item in exception_list_ini:
+            if "_" not in except_item:
+                exception_list.append(except_item)
+        exception_tuple = None
+        for iii, except_item in enumerate(exception_list):
+            if iii == 0:
+                exception_tuple = (getattr(requests.exceptions, except_item),)
+            else:
+                exception_tuple = exception_tuple + (getattr(requests.exceptions, except_item),)
+        return exception_tuple
+
     def does_url_exist(self, url):
         """
         Check if the given url exists or not
         """
         try:
             response = requests.get(url)
-        except:
+        except self._get_request_exceptions_tuple() as eee:
+            log.error(eee)
             return False
         if response.status_code == 200:
             return True
@@ -327,7 +386,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         """
         Sets the path for download and stores the configuration
         """
-        dl_dir = a_dialog.open_directory_dialog(caption="Select Download directory")
+        dl_dir = self.a_dialog.open_directory_dialog(caption="Select Download directory")
         log.info("Download dir: %s", dl_dir)
         self.general_config["Last_Path_for_Download"] = dl_dir
         self.set_general_config_to_yml_file()
@@ -340,11 +399,12 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         """
         try:
             if os.path.exists(self.path_config_file):
-                with open(self.path_config_file, "w") as file:
+                with open(self.path_config_file, "w", encoding="UTF-8") as file:
                     yaml.dump(self.general_config, file)
-        except Exception as e:
+            else:
+                raise FileExistsError
+        except (FileExistsError, PermissionError, FileNotFoundError, IsADirectoryError, NotImplementedError):
             log.error("Saving yml configuration file!")
-            log.error(e)
 
     def _lineedit_url_changed(self):
         """
@@ -431,13 +491,14 @@ class MyWindow(QtWidgets.QMainWindow):
 
         if result == QtWidgets.QMessageBox.Yes:
             # print('inside class')
+            # close dialogs
             # self.CCDialog
 
-            try:
-                ui.CCDialog.quit()
-            except Exception as e:
-                # log.error(e)
-                pass
+            # try:
+            #     ui.CCDialog.quit()
+            # except Exception as e:
+            #     # log.error(e)
+            #     pass
 
             event.accept()
 
@@ -449,7 +510,7 @@ if __name__ == "__main__":
     # Create Queue and redirect sys.stdout to this queue
     # sys.stdout = WriteStream(a_queue)
     # Log handler
-    a_dialog = class_file_dialogs.Dialogs()
+
     ui.setupUi(main_window)
     ui.setup_ui2(main_window)
 

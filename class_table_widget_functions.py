@@ -718,6 +718,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         old_value = val  # self._last_value_selected
         itm = self.tablewidgetobj.itemFromIndex(index)
         new_value = itm.text()
+        #print("item_data_changed")
         # self._set_item_style(self.tablewidgetobj.item(itm.row(),icol)) # column item
         if new_value != old_value and old_value is not None and index in self.tablewidgetobj.selectedIndexes():
             # indextype=index.siblingAtColumn(tcol)
@@ -871,12 +872,13 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             selected = dict_struct  # .copy() #select dictionary
             selected, trlist = self._get_selected_tracklist_one_item(selected, trlist)
             # last tracked is variable
+            #print("is dict instance")
             if len(trlist) == 1:
                 selected.update({trlist[0]: val})
                 # log.debug('setvaltodict_dict Here {} set to {}'.format(trlist[0],val))
                 # update
                 trackstruct = track.copy()
-                _, self.data_struct = self.set_tracked_value_to_dict(trackstruct, val, self.data_struct, subtype)
+                #_, self.data_struct = self.set_tracked_value_to_dict(trackstruct, val, self.data_struct, subtype)
                 if emitsignal:
                     self._data_change(trackstruct, str(val), str(type(val)), subtype)  # refresh on main
         return do_refresh_tablewidget, dict_struct
@@ -899,11 +901,13 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         Returns:
             tuple[dict,list]: dict with track[0], 1 value list of track[0]
         """
-        while len(trlist) > 1:
+        len_trlist = len(trlist)
+        while len_trlist > 1:
             try:
                 selected = selected[trlist[0]]
                 trlist.pop(0)
-            except (KeyError, IndexError):
+                len_trlist = len(trlist)
+            except (KeyError, IndexError, RecursionError):
                 break
         return selected, trlist
 
@@ -1025,39 +1029,26 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         maskstruct = self.data_struct_mask
         if len(maskstruct) == 0:
             return {}
-        maskdict = maskstruct[0]
+        if isinstance(maskstruct,list):
+            maskdict = maskstruct[0]
+        elif isinstance(maskstruct,dict):
+            maskdict = maskstruct
+        mask_keylist=self.get_dict_key_list(maskdict)
         ttt_track = track.copy()
-        count = 0
-        new_track = []
-        mask = {}
-        while len(ttt_track) > 0:
-            if count == 0:  # skip Data id
+        if len(track)>0:
+            if track[0] not in mask_keylist:
                 ttt_track.pop(0)
+                # Need to add the base of the list in the track
+                new_track=[mask_keylist[0]]+ttt_track
             else:
-                tr = ttt_track[0]
-                ttt_track.pop(0)
-                new_track.append(tr)
-                try:
-                    val = self.get_tracked_value_in_struct(new_track, maskdict)
-                except (KeyError, ValueError, TypeError):
-                    val = None
-                if val is None:
-                    last = len(new_track) - 1
-                    new_track.pop(last)
-                    new_track.append("__any__")
-                    try:
-                        val = self.get_tracked_value_in_struct(new_track, maskdict)
-                    except (KeyError, ValueError, TypeError):
-                        val = None
-                    if val is None:
-                        mask = {}
-                        break
-                if isinstance(val, dict):
-                    klist = self.get_dict_key_list(val)
-                    if "__m__" in klist:
-                        mask = val
-                        break
-            count = count + 1
+                new_track=ttt_track
+        else:
+            return {}
+        try:
+            mask = self.get_tracked_value_in_struct(new_track, maskdict)
+        except (KeyError, ValueError, TypeError):
+            mask = {}
+        # print("->",mask)
         return mask
 
     def str_to_list(self, astr: str) -> list:
