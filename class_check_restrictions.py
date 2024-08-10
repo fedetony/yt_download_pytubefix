@@ -527,12 +527,11 @@ class CheckRestrictions:
             if typestr == str(int):
                 tyval = int(val)
             elif typestr == str(float):
-
                 tyval = float(val)
             elif typestr == str(bool):
-                if val in ["1", "True", "true", "yes", "Yes"]:
+                if str(val).lower() in ["1", "true", "yes", "y", "t"]:
                     tyval = True
-                elif val in ["0", "False", "false", "no", "No"]:
+                elif str(val).lower() in ["0", "false", "no", "n", "f"]:
                     tyval = False
                 else:
                     tyval = int(val)
