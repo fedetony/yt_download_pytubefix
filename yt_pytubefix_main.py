@@ -173,7 +173,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         # print("before: %s",self.url_struct)
         processed_val=self.twf.check_restrictions.set_type_to_value(val,valtype,subtype)
         self.twf.set_tracked_value_to_dict(track,processed_val,self.url_struct,subtype,False)
-        log.debug("after: %s",self.url_struct)
+        # log.debug("after: %s",self.url_struct)
 
     def pytubefix_download_progress(self, progress_list: list):
         """

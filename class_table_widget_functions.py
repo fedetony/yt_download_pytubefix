@@ -717,6 +717,9 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         """
         old_value = val  # self._last_value_selected
         itm = self.tablewidgetobj.itemFromIndex(index)
+        # when you click outside will be none
+        if not itm:
+            return
         new_value = itm.text()
         #print("item_data_changed")
         # self._set_item_style(self.tablewidgetobj.item(itm.row(),icol)) # column item
