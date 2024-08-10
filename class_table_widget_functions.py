@@ -1030,7 +1030,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             dict: Mask dictionary for the specific item
         """
         maskstruct = self.data_struct_mask
-        if len(maskstruct) == 0:
+        if len(maskstruct) == 0 or len(track) == 0:
             return {}
         if isinstance(maskstruct,list):
             maskdict = maskstruct[0]
@@ -1038,18 +1038,16 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             maskdict = maskstruct
         mask_keylist=self.get_dict_key_list(maskdict)
         ttt_track = track.copy()
-        if len(track)>0:
-            if track[0] not in mask_keylist:
+        
+        mask = self.get_tracked_value_in_struct(ttt_track, maskdict)
+        if not mask: 
+            if '__any__' in mask_keylist:
                 ttt_track.pop(0)
                 # Need to add the base of the list in the track
-                new_track=[mask_keylist[0]]+ttt_track
-            else:
-                new_track=ttt_track
-        else:
-            return {}
-        try:
-            mask = self.get_tracked_value_in_struct(new_track, maskdict)
-        except (KeyError, ValueError, TypeError):
+                new_track=['__any__']+ttt_track
+                mask = self.get_tracked_value_in_struct(new_track, maskdict)   
+
+        if not mask:
             mask = {}
         # print("->",mask)
         return mask
@@ -1300,32 +1298,34 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         Returns:
             any: value at structure position in track. None if not found.
         """
-        trlist = track.copy()
-        selected = {}
-        if len(track) == 0:
-            return None
-        if isinstance(data_struct, list):
-            for a_data in data_struct:
-                if a_data["ID"] == trlist[0]:
-                    trlist.pop(0)
-                    selected = a_data  # select dictionary
-                    while len(trlist) > 1:
-                        selected = selected[trlist[0]]
+        try:
+            trlist = track.copy()
+            selected = {}
+            if len(track) == 0:
+                return None
+            if isinstance(data_struct, list):
+                for a_data in data_struct:
+                    if a_data["ID"] == trlist[0]:
                         trlist.pop(0)
-                    # last tracked is variable
-                    if len(trlist) == 1:
-                        # print ('get tracked value list',trlist[0],selected[trlist[0]])
-                        return selected[trlist[0]]
-        elif isinstance(data_struct, dict):
-            selected = data_struct  # select dictionary
-            while len(trlist) > 1:
-                selected = selected[trlist[0]]
-                trlist.pop(0)
-            # last tracked is variable
-            if len(trlist) == 1:
-                # print ('get tracked value dict',trlist[0],selected[trlist[0]])
-                return selected[trlist[0]]
-
+                        selected = a_data  # select dictionary
+                        while len(trlist) > 1:
+                            selected = selected[trlist[0]]
+                            trlist.pop(0)
+                        # last tracked is variable
+                        if len(trlist) == 1:
+                            # print ('get tracked value list',trlist[0],selected[trlist[0]])
+                            return selected[trlist[0]]
+            elif isinstance(data_struct, dict):
+                selected = data_struct  # select dictionary
+                while len(trlist) > 1:
+                    selected = selected[trlist[0]]
+                    trlist.pop(0)
+                # last tracked is variable
+                if len(trlist) == 1:
+                    # print ('get tracked value dict',trlist[0],selected[trlist[0]])
+                    return selected[trlist[0]]
+        except (KeyError, ValueError, TypeError):
+            pass
         return None
 
     def get_dict_max_depth(self, adict: any, depth: int = 0, maxdepth: int = 0) -> int:

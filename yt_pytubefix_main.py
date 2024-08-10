@@ -104,6 +104,11 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                         "MP3": {'__m__1':"is_value_type",'__mv__1':str(bool)},
                         # "DL Button": "",
                     },
+                    # This was to test restriction on a specific id :) works
+                    # "URL0": {
+                    #     "Title": {'__m__1':"is_value_type",'__mv__1':str(str),
+                    #             '__m__2':"is_not_change",'__mv__2':""},
+                    # },
                 }
         self.url_id_counter = 0
         self.ongoing_download_url = None
