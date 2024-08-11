@@ -7,7 +7,6 @@ import logging
 import re
 from PyQt5 import QtCore, QtWidgets
 
-
 import class_check_restrictions
 
 # set up logging to file - see previous section for more details
@@ -98,7 +97,8 @@ class TableWidgetFunctions(QtWidgets.QWidget):
     """
 
     signal_data_change = QtCore.pyqtSignal(list, str, str, str)
-    signal__item_button_clicked = QtCore.pyqtSignal(list)
+    signal_item_button_clicked = QtCore.pyqtSignal(list)
+    signal_item_button_right_clicked = QtCore.pyqtSignal(list,QtCore.QPoint)
     signal_item_combobox_currentindexchanged = QtCore.pyqtSignal(int, str, list)
     item_doubleclicked = QtCore.pyqtSignal(list)
     signal_item_checkbox_checked = QtCore.pyqtSignal(bool, list)
@@ -147,6 +147,29 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         self.refresh_tablewidget(self.show_dict, self.modelobj, self.tablewidgetobj)
         # connect action
         self.tablewidgetobj.clicked.connect(self._tablewidget_onclick)
+        #Install event filter for right click
+        self.tablewidgetobj.viewport().installEventFilter(self)
+    
+    def eventFilter(self, source, event):
+        """Emits signal for right button clicked of item
+        
+        Args:
+            source (QWidget): widget where the event is comming
+            event (QtCore.QEvent): event to be filtered
+
+        Returns:
+            Event call: overwrites event in widget
+        """
+        if(event.type() == QtCore.QEvent.MouseButtonPress and
+           event.buttons() == QtCore.Qt.RightButton and
+           source is self.tablewidgetobj.viewport()):
+            item = self.tablewidgetobj.itemAt(event.pos())
+            #print('Right click Global Pos:', event.globalPos())
+            if item is not None:
+                # print('Right click Table Item:', item.row(), item.column())
+                track=self.get_track_of_item_in_table(item)
+                self.signal_item_button_right_clicked.emit(track,event.globalPos())
+        return super().eventFilter(source, event)
 
     def _data_change(self, track: list[str], val: any, valtype: str, subtype: str):
         """Emits event data has changed and new value to parent
@@ -397,7 +420,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             track (list): track list of item clicked
         """
         # print('entered click {}'.format(track))
-        self.signal__item_button_clicked.emit(track)
+        self.signal_item_button_clicked.emit(track)
 
     def _item_combobox_indexchanged(self, cbw: QtWidgets.QComboBox, track: list = []):
         """Emits signal for item combobox widget
@@ -621,6 +644,27 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             track.append(self.get_columnname_from_colpos(mycol))
         return track
 
+    def set_value_and_trigger_data_change(self,track:list,value:any,the_type:str,subtype:str=""):
+        """Check if value is conform. If conform then set it and refresh Table
+        
+        Args:
+            track (list): Track list
+            value (any): Value (in the correct type)
+            the_type (str): type of the value as string
+            subtype (str, optional): if list, type type of the list items in list as string. Defaults to "".
+        """
+        value = self.check_restrictions.set_type_to_value(value,the_type,subtype)
+        itm, itmindex, _, _ = self.get_item_from_track(track)
+        #print("Got: ",itm, itmindex, itmtrack, itmindextrack)
+        if itmindex:
+            if self.check_item_value_for_edit(itmindex,value,True):
+                self.set_tracked_value_to_dict(track,value,self.show_dict,subtype,True)
+                if the_type == str(bool):
+                    self._set_checkbox_value_to_item(itm)
+                
+                self.refresh_tablewidget(self.show_dict, self.modelobj, self.tablewidgetobj)
+                self._tablewidget_onclick(itmindex)
+
     def _edit_a_table_widget_item(self, index: QtCore.QModelIndex):
         """Connects item to datachange fuction
 
@@ -637,11 +681,10 @@ class TableWidgetFunctions(QtWidgets.QWidget):
     # def get_list_of_tracks_of_children(self, parenttrack):
     #    self.get_gentrack_from_localtrack
 
-    def get_item_from_track(self, modelobj: QtCore.QAbstractItemModel, track: list) -> None:
+    def get_item_from_track(self, track: list) -> None:
         """Get an item object and all related info
 
         Args:
-            modelobj (QtCore.QAbstractItemModel): Table widget model object
             track (list): where is the item located track
 
         Returns:
@@ -655,29 +698,40 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             itmtrack = []
             itmindextrack = []
             parent = None
+            modelobj=self.tablewidgetobj.model()
+            
+            # Track is in tables [ rowname colname ]
+            if len(track) > 1:
+                col_pos = self.get_item_column_pos_in_table(track[1])
+            else:
+                col_pos = 0
+ 
             for tr in track:
                 if parent is None:
-                    # log.info('the size -> {}'.format(modelobj.rowCount()))
+                    log.debug('get_item_from_track if the size -> {}'.format(modelobj.rowCount()))
                     for iii in range(modelobj.rowCount()):
-                        itmindex = modelobj.index(iii, 0)
-                        itm = modelobj.itemFromIndex(itmindex)
+                        itmindex = modelobj.index(iii, col_pos)
+                        itm = self.tablewidgetobj.itemFromIndex(itmindex)
+                        # itm = modelobj.itemFromIndex(itmindex)
                         if not self._is_item_text(itm, tr):
                             break  # item None or found
                     # not found
                     if not self._is_item_not_text(itm, tr):
                         break  # item none or not found
                 else:
-                    # log.info('the size -> {}'.format(modelobj.rowCount(parent)))
+                    log.info('get_item_from_track else the size -> {}'.format(modelobj.rowCount(parent)))
                     for iii in range(modelobj.rowCount(parent)):
-                        itmindex = modelobj.index(iii, 0, parent)
-                        itm = modelobj.itemFromIndex(itmindex)
+                        itmindex = modelobj.index(iii, col_pos, parent)
+                        #itm = modelobj.itemFromIndex(itmindex)
+                        itm = self.tablewidgetobj.itemFromIndex(itmindex)
                         if not self._is_item_text(itm, tr):
                             break  # item None or found
                     # not found
                     if not self._is_item_not_text(itm, tr):
                         break  # item none or not found
                 parent = itmindex
-                parentitm = modelobj.itemFromIndex(parent)
+                parentitm = self.tablewidgetobj.itemFromIndex(itmindex)
+                #parentitm = modelobj.itemFromIndex(parent)
                 if parentitm.text() == "ID":
                     # parenttxt = parentitm.text()
                     parent = None
@@ -984,7 +1038,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         if itmmask == {}:
             itmmask = self.get_mask_for_item(self.get_gentrack_from_localtrack(track))
         # print(self.data_struct_mask)
-        print("Masked Track:", track, "Mask:", itmmask)
+        log.debug("Checking the item by mask-> Masked Track: %s, Mask: %s", track, itmmask)
         # value=self.get_tracked_value_in_struct(track,data_struct)
         # print('Tracked value:',value)
         if len(itmmask) > 0:

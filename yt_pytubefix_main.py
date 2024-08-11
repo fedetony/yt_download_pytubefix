@@ -147,6 +147,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         )
         # self.model=self.twf.modelobj
         self.twf.signal_data_change[list,str,str,str].connect(self._table_widget_data_changed)
+        self.twf.signal_item_button_right_clicked[list,QtCore.QPoint].connect(self._table_item_right_clicked)
         # self.icons_dict={'Plots':self.icon_main}
 
         # self.tvf.Expand_to_Depth(1)
@@ -271,14 +272,186 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         """
         Connect all objects
         """
-        # right click menu
-        # self.treeView.customContextMenuRequested.connect(self.listItemRightClicked)
-
         self.lineEdit_url.textChanged.connect(self._lineedit_url_changed)
         self.actionAbout.triggered.connect(self.show_aboutbox)
         self.actionSet_Path.triggered.connect(self.Set_download_Path)
         self.pushButton_url.pressed.connect(self._pushbutton_url_pressed)
 
+        #right click menu
+        
+        self.tableWidget_url.customContextMenuRequested.connect(self._table_item_right_clicked)  
+    
+    # Right click Menu
+    def _table_item_right_clicked(self, track:list, apos: QtCore.QPoint): 
+        """Displays right click menu where item was right clicked
+
+        Args:
+            track (list): track of item
+            apos (QtCore.QPoint): global position of event
+        """
+        id_key_list,track_list=self._get_id_key_list_from_selection()
+        
+        log.debug('Rightclick Selected->  id_key_list: %s, track_list %s, track %s',id_key_list,track_list,track) 
+        if len(track)==0:
+            return    
+        self.item_menu= QtWidgets.QMenu()
+        menu_item01 = self.item_menu.addAction(f"Toggle {track}")
+        self.item_menu.addSeparator()
+        menu_item10 = self.item_menu.addAction(f"URL info {track[0]}")  
+        menu_item11 = self.item_menu.addAction(f"Download Options {track[0]}")
+        self.item_menu.addSeparator()
+        menu_item20 = self.item_menu.addAction(f"Download {track[0]}")
+        menu_item21 = self.item_menu.addAction(f"Download {id_key_list}")
+        self.item_menu.addSeparator()
+        menu_item40 = self.item_menu.addAction(f"Remove {id_key_list}")
+        self.item_menu.addSeparator()
+        menu_item60 = self.item_menu.addAction("Download All")
+        self.item_menu.addSeparator()
+        menu_item61 = self.item_menu.addAction("Remove All")
+
+        # default enabled in menu
+        menu_item01.setEnabled(False)
+        menu_item10.setEnabled(True) 
+        menu_item11.setEnabled(True)
+        menu_item20.setEnabled(True)
+        menu_item21.setEnabled(True)
+        menu_item40.setEnabled(True)
+        menu_item60.setEnabled(True)
+        menu_item61.setEnabled(True)
+
+        if len(id_key_list)==0:
+            menu_item21.setEnabled(False)
+            menu_item40.setEnabled(False)
+            menu_item60.setEnabled(False)
+            menu_item61.setEnabled(False)      
+
+        #itm = self.twf.get_item_from_track(track)
+        #mask = self.twf.get_mask_for_item(itm)
+        value_of_rc=self.twf.get_tracked_value_in_struct(track,self.url_struct)
+        is_itm_bool=self.twf.check_restrictions.check_type(str(bool),value_of_rc,True)
+        if is_itm_bool:
+            menu_item01.setEnabled(True)
+            menu_item01.triggered.connect(lambda: self._toggle_bool_item(track))
+        
+        if len(id_key_list)>0:
+            menu_item40.setEnabled(True)
+            menu_item40.triggered.connect(lambda: self._remove_url_items(id_key_list,True))
+
+            menu_item61.triggered.connect(lambda: self._remove_url_items(self.get_id_list(),True))
+
+        # menu_item01.triggered.connect(lambda: self._rc_menu_item_clicked(indexitem,1))
+        # menu_item10.triggered.connect(lambda: self._rc_menu_item_clicked(indexitem,10)) 
+        # menu_item11.triggered.connect(lambda: self._rc_menu_item_clicked(indexitem,11))
+        # menu_item20.triggered.connect(lambda: self._rc_menu_item_clicked(indexitem,20))
+        # menu_item21.triggered.connect(lambda: self._rc_menu_item_clicked(indexitem,21))
+        # menu_item40.triggered.connect(lambda: self._rc_menu_item_clicked(indexitem,40))
+        # menu_item60.triggered.connect(lambda: self._rc_menu_item_clicked(indexitem,60))
+        # menu_item61.triggered.connect(lambda: self._rc_menu_item_clicked(indexitem,61))
+
+
+          
+        # print("Position:",apos)     
+        # parentPosition = self.tableWidget_url.mapToGlobal(QtCore.QPoint(0, 0)) 
+        # self.item_menu.move(parentPosition + apos)
+        #position is already global
+        self.item_menu.move(apos)
+        self.item_menu.show() 
+
+    # def _rc_menu_item_clicked(self,indexitem,menuitem):
+        
+    #     if menuitem==1:            
+    #         self.Open_Plot_Preview_Selected_Dialog()
+    #     elif menuitem==10:
+    #         self.add_new_standard_plotitem()
+    #     elif menuitem==11:
+    #         self.addclone_new_plotitem()
+    #     elif menuitem==20:
+    #         self.delete_plotitem()
+    #     elif menuitem==21:
+    #         self.add_plot_to_item()
+    #     elif menuitem==40:
+    #         self.add_plot_to_item()
+    #     elif menuitem==42:
+    #         self.Copy_plot_track()
+    #     elif menuitem==43:
+    #         self.Paste_from_plot_track()            
+    #     elif menuitem==50:
+    #         self.delete_plot()
+    #     elif menuitem==60:
+    #         self.Load_Append_Plot_Struct_json()
+    #     elif menuitem==61:            
+    #         self.Save_Item_to_json()            
+    #     else:
+    #         itm=indexitem.model().itemFromIndex(indexitem)  
+    #         track=self.track_key_tree(itm)
+    #         #print('Right item Menu track: ',track)
+    def _remove_url_items(self,id_key_list: list,prompt_msgbox:bool =False):
+        """Removes items from table
+
+        Args:
+            id_key_list (list): list of items to remove
+            prompt_msgbox (bool, optional): Prompt message box yes/no to delete. Defaults to False.
+        """
+        if prompt_msgbox:
+            if self.twf._is_same_list(self.get_id_list(),id_key_list):
+                if not self.a_dialog.send_question_yes_no_msgbox("Removing ALL URLS",f"Are you sure to remove ALL items: {len(id_key_list)} in total"):
+                    return
+            else:
+                if not self.a_dialog.send_question_yes_no_msgbox("Removing URLS",f"Are you sure to remove items {id_key_list}"):
+                    return
+        for a_key in id_key_list:
+            self.url_struct=self.get_dict_wo_key(self.url_struct,a_key)
+        self.twf.data_struct = self.url_struct
+        self.twf.set_show_dict()
+        self.twf.refresh_tablewidget(self.twf.show_dict, self.twf.modelobj, self.twf.tablewidgetobj)
+        
+    
+    def get_dict_wo_key(self,dictionary:dict, key) ->dict:
+        """Returns a **shallow** copy of the dictionary without a key."""
+        _dict = dictionary.copy()
+        _dict.pop(key, None)
+        return _dict
+    
+    def _toggle_bool_item(self,track: list):
+        """Toggles the value of a bool item in the Table
+
+        Args:
+            track (list): track of item
+        """
+        value_of_rc=self.twf.get_tracked_value_in_struct(track,self.url_struct)
+        is_itm_bool=self.twf.check_restrictions.check_type(str(bool),value_of_rc,True)
+        if is_itm_bool:
+            log.debug("Toggle Triggered %s",track)
+            value_of_rc = self.twf.check_restrictions.set_type_to_value(value_of_rc,str(bool),"")
+            self.twf.set_value_and_trigger_data_change(track,not value_of_rc,"")
+
+            # self.twf.set_tracked_value_to_dict(track,not value_of_rc,self.twf.show_dict,"",True)
+            # self.twf.refresh_tablewidget(self.twf.show_dict, self.twf.modelobj, self.twf.tablewidgetobj)
+
+    def _get_id_key_list_from_selection(self) -> tuple[list,list]:
+        """Gets a list of keys of the items selected
+
+        Returns:
+            tuple[list,list]: list of selected items, list of track lists
+        """
+        selindex=self.tableWidget_url.selectedIndexes() 
+        id_key_list=[]
+        track_list=[]
+        for selection in selindex:
+            itm = self.twf.tablewidgetobj.itemFromIndex(selection)
+            id_key=self.twf.get_key_value_from_item(itm)
+            # #itm=selection.model().itemFromIndex(selection)   
+            track=self.twf.get_track_of_item_in_table(itm)
+            # track=self.twf.get_key_value_from_row(itm.row())
+            # if isinstance(self.twf.data_struct,list):
+            #     id_key=self.twf.get([track[0],'ID']) 
+            # if isinstance(self.twf.data_struct,dict):
+            #     id_key=self.get_tracked_value_in_dict([track[0],'ID'])
+            if id_key not in id_key_list:
+                id_key_list.append(id_key)
+                track_list.append(track)
+        return id_key_list, track_list
+    
     def _pushbutton_url_pressed(self):
         """
         On pressed url button add to list
