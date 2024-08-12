@@ -30,6 +30,7 @@ from operator import index
 import class_file_dialogs
 import class_table_widget_functions
 import class_pytubefix_use
+import class_signal_tracker
 import yt_pytubefix_gui
 
 # import datetime
@@ -155,10 +156,11 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
 
         # --------------use_pytubefix
         self.ptf = class_pytubefix_use.use_pytubefix()
-        self.ptf.to_log[str].connect(self.pytubefix_log)
-        self.ptf.download_start[str, str].connect(self.pytubefix_download_start)
-        self.ptf.download_end[str, str].connect(self.pytubefix_download_end)
-        self.ptf.on_progress[list].connect(self.pytubefix_download_progress)
+        self.st = class_signal_tracker.SignalTracker()
+        self.st.ptf_to_log[str].connect(self.pytubefix_log)
+        self.st.ptf_download_start[str, str].connect(self.pytubefix_download_start)
+        self.st.ptf_download_end[str, str].connect(self.pytubefix_download_end)
+        self.st.ptf_on_progress[str, float].connect(self.pytubefix_download_progress)
 
         # -----------Splitter
         # self._set_splitter_pos(400,1/3) #initial position
@@ -181,16 +183,13 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.twf.set_tracked_value_to_dict(track,processed_val,self.url_struct,subtype,False)
         # log.debug("after: %s",self.url_struct)
 
-    def pytubefix_download_progress(self, progress_list: list):
+    def pytubefix_download_progress(self, url: str, per: float):
         """
         Shows download progress
         """
         # url = self.ongoing_download_url
-        title = self.ongoing_download_title
-        [bytes_received, filesize] = progress_list
-        per = round(bytes_received / filesize * 100, 2)
         # This is momentary
-        txt = f"Downloaded {per}% for {title}"
+        txt = f"Downloaded {per}% for {url}"
         log.info(txt)
 
     def pytubefix_download_start(self, url: str, title: str):
