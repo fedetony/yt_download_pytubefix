@@ -15,6 +15,7 @@ from common import *
 from PyQt5 import QtCore
 
 import class_pytubefix_use
+import class_signal_tracker
 
 
 log = logging.getLogger(__name__)
@@ -24,17 +25,37 @@ ahandler=logging.StreamHandler()
 ahandler.setLevel(logging.INFO)
 ahandler.setFormatter(formatter)
 log.addHandler(ahandler)
-
-
  
 class queueStream(threading.Thread):
-    """
-        A thread class to buffer and deliver the downloads to pytubefix
-    """                  
+    """A thread class to buffer and deliver the downloads using pytubefix
+        The thread performs the downloads in background while GUI handles the thread.
+        Can multithread for several simultaneous downloads. Each thread will download sequentially 
+        the files given.
+    """                
 
-    def __init__(self, url_list:list[str],file_properties_dict:dict,cycle_time:float,kill_event:threading.Event,progress_bar_one_download=None,progress_bar_files_downloaded=None):
+    def __init__(self,file_properties_dict:dict,cycle_time:float,kill_event:threading.Event):
+        """Thread initiation
+
+        Args:
+            file_properties_dict (dict): index is an int from 0 to number of files
+             {
+            index:{
+                "URL": ... str, 
+                "output_path": ... str = None,
+                "filename": ... str= None,
+                "filename_prefix": ... str = None,
+                "skip_existing": ... bool = True,
+                "timeout": ... int = None,
+                "max_retries": ... int = 0,
+                "mp3": ... bool = False,
+                }
+            }
+            cycle_time (float):time forthread to wait between loops in seconds
+            kill_event (threading.Event): threading event to kill thread externally 
+        """
         threading.Thread.__init__(self, name="File download thread")        
         self.ptf = class_pytubefix_use.use_pytubefix()
+        self.st = class_signal_tracker.signal_tracker()
 
         self.ptf.to_log[str].connect(self.pytubefix_log)
         self.ptf.download_start[str, str].connect(self.pytubefix_download_start)
@@ -47,12 +68,9 @@ class queueStream(threading.Thread):
         self.output_queue = queue.Queue()   
         self.file_queue_size=self.file_queue.qsize()
         self.out_queue_size=self.output_queue.qsize()                    
-        self.progress_bar_one_download=progress_bar_one_download
-        self.progress_bar_files_downloaded=progress_bar_files_downloaded
         self.progress_bar_ini=0
-        self.progress_bar_end=100        
-        self.progress_bar_set_status(self.progress_bar_one_download,0)        
-        self.progress_bar_set_status(self.progress_bar_files_downloaded,0) 
+        self.progress_bar_end=100   
+        self.st.send_th_file_download_progress(0,0,0)             
         #event handled       
         self.event_finished_one_file_download=threading.Event()        
         self.event_finished_one_file_download.clear() 
@@ -61,21 +79,76 @@ class queueStream(threading.Thread):
         self.is_file_download_finished=False
         self.download_finished=False
         self.download_stream_size=0
-        self.max_buffer_size=10        
+        self.max_buffer_size=10  
+        url_list=self.get_url_list(file_properties_dict)      
         self.file_list= url_list
+        self.file_properties_dict=file_properties_dict
         self.number_of_files_to_download=len(url_list)
         self.number_of_files_downloaded=0
         self.set_files_to_file_queue(url_list)
         self.actual_url_info={}
+        self.actual_url = ""
+        self.actual_url_properties = {}
+        self.actual_url_index = -1
     
+    def get_url_list(self,file_properties_dict:dict)->list:
+        """Get URL list of files to download
+
+        Args:
+            file_properties_dict (dict): dictionary containing all downloads file information
+
+        Returns:
+            list: list of url addresses
+        """
+        url_list=[]
+        for properties in self.file_properties_dict:
+            try:
+                url_list.append(file_properties_dict[properties]["URL"])
+            except (KeyError, TypeError, AttributeError, ValueError):
+                url_list=[]
+                break
+        return url_list
+
+    def get_download_options_for_url(self,index:int,url:str)-> dict:
+        """Get the download options / properties for the download
+            file_properties_dict = {
+            index:{
+                "URL": ... str, 
+                "output_path": ... str = None,
+                "filename": ... str= None,
+                "filename_prefix": ... str = None,
+                "skip_existing": ... bool = True,
+                "timeout": ... int = None,
+                "max_retries": ... int = 0,
+                "mp3": ... bool = False,
+                }
+            }
+            Each file has to have an options dictionary 
+        Args:
+            index (int): enumerated from 0 to N files
+            url (str): file url
+
+        Returns:
+            dict: _description_
+        """
+        url_properties={}
+        for properties in self.file_properties_dict:
+            try:
+                if url == properties["URL"] and str(index) == str(properties):
+                    url_properties=self.file_properties_dict[properties]
+            except (KeyError, TypeError, AttributeError, ValueError):
+                url_properties={}
+        return url_properties
+   
     def pytubefix_log(self, log_msg: str):
         """
         Logs message from pytubefix
         Args:
              log_msg (str): message
         """
+        self.st.send_to_log(log_msg)
         if "error" in log_msg.lower():
-            log.error("Error while downloading %s", self.actual_url_info)
+            log.error("Error while downloading %s %s", self.actual_url_index, self.actual_url_info)
             log.error(log_msg)
             self.quit()
         elif "warning" in log_msg.lower():
@@ -89,9 +162,8 @@ class queueStream(threading.Thread):
         """
         # url = self.ongoing_download_url
         [bytes_received, filesize] = progress_list
-        sstatb=self.get_progress_percentage(bytes_received, filesize,Perini=0,Perend=100)
-        self.progress_bar_set_status(self.progress_bar_one_download,sstatb)
-        
+        progress_per=self.get_progress_percentage(bytes_received, filesize,per_ini=0,per_end=100)
+        self.st.send_on_progress(f"{self.actual_url_index} "+self.actual_url,progress_per)
 
     def pytubefix_download_start(self, url: str, title: str):
         """Receives Signal form Pytube fix when a Download is started
@@ -100,6 +172,7 @@ class queueStream(threading.Thread):
             url (str): url of download
             title (str): title of the download
         """
+        self.st.send_download_start(f"{self.actual_url_index} "+ url, title)
         log.info("Download started: %s \nURL: %s",title,url)
         log.info(self.actual_url_info)
     
@@ -110,6 +183,7 @@ class queueStream(threading.Thread):
             url (str): url of download
             title (str): title of the download
         """
+        self.st.send_download_end(f"{self.actual_url_index} "+ url, title)
         self.event_get_next_file_to_download.set()
         self.number_of_files_downloaded = self.number_of_files_downloaded + 1
         log.info("Download finished: %s \nURL: %s",title,url)
@@ -120,9 +194,22 @@ class queueStream(threading.Thread):
             self.event_get_next_file_to_download.clear()
             # get next url
             a_url=self.add_to_output_queue()
-            #----------------  here add all other download options
+            #----------------  here sets all options
+            # Index initialized in -1 -> first index = 0
+            self.actual_url_index = self.actual_url_index + 1
+            self.actual_url=a_url
+            self.actual_url_properties = self.get_download_options_for_url(self.actual_url_index,self.actual_url)
             self.actual_url_info=self.ptf.get_url_info(a_url)
-            self.ptf.download_video(a_url)
+            self.ptf.download_video(
+                url = self.actual_url_properties["URL"], 
+                output_path = self.actual_url_properties["output_path"],
+                filename = self.actual_url_properties["filename"],
+                filename_prefix = self.actual_url_properties["filename_prefix"],
+                skip_existing = self.actual_url_properties["skip_existing"],
+                timeout = self.actual_url_properties["timeout"],
+                max_retries = self.actual_url_properties["max_retries"],
+                mp3 = self.actual_url_properties["mp3"], 
+                )
 
             
 
@@ -141,39 +228,41 @@ class queueStream(threading.Thread):
         if Buffer_size>int(self.max_buffer_size/2):
             Buffer_size=int(self.max_buffer_size/2)
         self.Buff_size=Buffer_size
-        self.Buff_fill=Refill_value
-        
-    def Fill_buffer(self,whencountis=0,untilcountis=5):        
-        if whencountis<0:
-            whencountis=0
-        if self.out_queue_size<=whencountis and self.file_queue_size>0:            
-            while self.file_queue_size>0 and self.out_queue_size<untilcountis:
-                self.add_to_output_queue()    
-            self.event_get_next_file_to_download.set()                
-        self.update_queue_sizes()    
-
-    def progress_bar_set_status(self,Pbar,val):
-        if  Pbar!=None and int(val)>=0 and int(val)<=100:      
-            Pbar.SetStatus(int(val))
+        self.Buff_fill=Refill_value  
     
     def quit(self):
+        """Interrupts with kill event and exit the thread
+        """
         self.killer_event.set()        
 
-    def get_progress_percentage(self,sss,Numsss,Perini=0,Perend=100):
-        if sss>Numsss:            
-            return Perend
-        if sss<0 or Numsss<=0:            
-            return Perini
-        if (Perend-Perini)<=0:
-            Per=min(abs(Perini),abs(Perend))              
+    def get_progress_percentage(self,value:float,total_value:float,per_ini:float=0,per_end:float=100)->float:
+        """Calculates Percentage can be set to start and end in different values
+
+        Args:
+            value (float): value
+            total_value (float): total value
+            per_ini (float, optional): initial percentage value. Defaults to 0.
+            per_end (float, optional): end percentage value. Defaults to 100.
+
+        Returns:
+            float: percentage in range selected
+        """
+        if value>total_value:            
+            return per_end
+        if value<0 or total_value<=0:            
+            return per_ini
+        if (per_end-per_ini)<=0:
+            Per=min(abs(per_ini),abs(per_end))              
             return Per 
-        Per=round(Perini+(sss/Numsss)*(Perend-Perini),2)        
+        Per=round(per_ini+(value/total_value)*(per_end-per_ini),2)        
         return Per   
        
-    def refresh_progress_bar_files_downloaded(self):    
-        sstat=self.get_progress_percentage(self.number_of_files_downloaded,self.number_of_files_to_download,Perini=0,Perend=100)        
-        self.progress_bar_set_status(self.progress_bar_files_downloaded,sstat)
-        #print('buffer per:',sstatb,'%',' stream per:',sstat,'%')
+    def refresh_progress_bar_files_downloaded(self):  
+        """Refresh and emit signal from download status
+        """  
+        progress_=self.get_progress_percentage(self.number_of_files_downloaded,self.number_of_files_to_download,per_ini=0,per_end=100) 
+        self.st.send_th_file_download_progress(self.number_of_files_downloaded,self.number_of_files_to_download,progress_)       
+        
 
     def run(self):                 
         #print('Entered Run------------------------------------')
@@ -211,8 +300,7 @@ class queueStream(threading.Thread):
             log.info("Successfully downloaded %s Files!",self.number_of_files_downloaded)                     
         log.info("File download thread Ended!")  
             
-        # self.progress_bar_set_status(self.progress_bar_one_download,0)        
-        # self.progress_bar_set_status(self.progress_bar_files_downloaded,100)     
+    
         # self.killer_event.set()   
         # self.quit() 
     
@@ -239,8 +327,7 @@ class queueStream(threading.Thread):
         except queue.Empty:                    
             pass     
         self.update_queue_sizes()
-        sstat=self.get_progress_percentage(self.number_of_files_downloaded,self.number_of_files_to_download,Perini=0,Perend=100)
-        self.progress_bar_set_status(self.progress_bar_one_download,sstat)     
+        self.refresh_progress_bar_files_downloaded()     
         return a_url                   
     
     def Consume_buff(self,doblock=False):
@@ -265,8 +352,7 @@ class queueStream(threading.Thread):
         if files_to_download is None or self.number_of_files_to_download==0:
             log.error('No files to download!')
             self.quit()
-        self.progress_bar_set_status(self.progress_bar_one_download,0)        
-        self.progress_bar_set_status(self.progress_bar_files_downloaded,0)                 
+        self.refresh_progress_bar_files_downloaded()              
         for a_url in files_to_download:
             self.add_to_file_queue_from_url_list(a_url)                
     
