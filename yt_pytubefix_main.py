@@ -24,8 +24,9 @@ import yaml
 import requests
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from genericpath import isfile
-from operator import index
+
+# from genericpath import isfile
+# from operator import index
 
 import class_file_dialogs
 import class_table_widget_functions
@@ -80,7 +81,18 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.url_id_counter = 0
         self.ongoing_download_url = None
         self.ongoing_download_title = None
-        self.url_struct_mask={}
+        self.url_struct_mask = {}
+        self.url_struct_options = {}
+        self.icon_main_pixmap = None
+        self.icon_main_pixmap = None
+        self.icon_main = None
+        self.icon_main = None
+        self.twf = None
+        self.ptf = None
+        self.st = None
+        self.default_config_path = None
+        self.path_config_file = None
+        self.item_menu = None
 
     def start_up(self):
         """Start the UI first to get all objects in"""
@@ -95,22 +107,39 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         except (TypeError, KeyError):
             self.download_path = self.app_path
         self.url_struct = {}
-        self.url_struct_mask={
-                    "__any__": {
-                        "Index": {'__m__1':"is_unique",'__mv__1':""},
-                        "Title": {'__m__1':"is_value_type",'__mv__1':str(str)},
-                        "URL": {'__m__1':"is_value_type",'__mv__1':str(str),
-                                '__m__2':"is_not_change",'__mv__2':""},
-                        "DL Enable": {'__m__1':"is_value_type",'__mv__1':str(bool)},
-                        "MP3": {'__m__1':"is_value_type",'__mv__1':str(bool)},
-                        # "DL Button": "",
-                    },
-                    # This was to test restriction on a specific id :) works
-                    # "URL0": {
-                    #     "Title": {'__m__1':"is_value_type",'__mv__1':str(str),
-                    #             '__m__2':"is_not_change",'__mv__2':""},
-                    # },
-                }
+        self.url_struct_mask = {
+            "__any__": {
+                "Index": {"__m__1": "is_unique", "__mv__1": ""},
+                "Title": {"__m__1": "is_value_type", "__mv__1": str(str)},
+                "URL": {"__m__1": "is_value_type", "__mv__1": str(str), "__m__2": "is_not_change", "__mv__2": ""},
+                "DL Enable": {"__m__1": "is_value_type", "__mv__1": str(bool)},
+                "MP3": {"__m__1": "is_value_type", "__mv__1": str(bool)},
+                "Skip Existing": {"__m__1": "is_value_type", "__mv__1": str(bool)},
+                "Timeout sec": {
+                    "__m__1": "is_value_type",
+                    "__mv__1": str(int),
+                    "__m__2": "is_value_gteq",
+                    "__mv__2": 0,
+                },
+                "Max Retries": {
+                    "__m__1": "is_value_type",
+                    "__mv__1": str(int),
+                    "__m__2": "is_value_gteq",
+                    "__mv__2": 0,
+                    "__m__3": "is_value_lteq",
+                    "__mv__3": 10,
+                },
+                "File Name": {"__m__1": "is_format", "__mv__1": r"^[a-zA-Z0-9._-]+(\.[a-zA-Z0-9._-]+)?$"},
+                "File Name Prefix": {"__m__1": "is_format", "__mv__1": r"^[a-zA-Z0-9._-]+$"},
+                "Download Path": {"__m__1": "is_not_change", "__mv__1": ""},
+            },
+            # This was to test restriction on a specific id :) works
+            # "URL0": {
+            #     "Title": {'__m__1':"is_value_type",'__mv__1':str(str),
+            #             '__m__2':"is_not_change",'__mv__2':""},
+            # },
+        }
+
         self.url_id_counter = 0
         self.ongoing_download_url = None
         self.ongoing_download_title = None
@@ -147,8 +176,8 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             self.tableWidget_url, self.url_struct, self.url_struct_mask, None, []
         )
         # self.model=self.twf.modelobj
-        self.twf.signal_data_change[list,str,str,str].connect(self._table_widget_data_changed)
-        self.twf.signal_item_button_right_clicked[list,QtCore.QPoint].connect(self._table_item_right_clicked)
+        self.twf.signal_data_change[list, str, str, str].connect(self._table_widget_data_changed)
+        self.twf.signal_item_button_right_clicked[list, QtCore.QPoint].connect(self._table_item_right_clicked)
         # self.icons_dict={'Plots':self.icon_main}
 
         # self.tvf.Expand_to_Depth(1)
@@ -157,10 +186,10 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         # --------------use_pytubefix
         self.ptf = class_pytubefix_use.use_pytubefix()
         self.st = class_signal_tracker.SignalTracker()
-        self.st.ptf_to_log[str].connect(self.pytubefix_log)
-        self.st.ptf_download_start[str, str].connect(self.pytubefix_download_start)
-        self.st.ptf_download_end[str, str].connect(self.pytubefix_download_end)
-        self.st.ptf_on_progress[str, float].connect(self.pytubefix_download_progress)
+        self.st.signal_th2m_to_log[str].connect(self.pytubefix_log)
+        self.st.signal_th2m_download_start[str, str].connect(self.pytubefix_download_start)
+        self.st.signal_th2m_download_end[str, str].connect(self.pytubefix_download_end)
+        self.st.signal_th2m_on_progress[str, float].connect(self.pytubefix_download_progress)
 
         # -----------Splitter
         # self._set_splitter_pos(400,1/3) #initial position
@@ -179,9 +208,35 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             subtype (str): _description_
         """
         # print("before: %s",self.url_struct)
-        processed_val=self.twf.check_restrictions.set_type_to_value(val,valtype,subtype)
-        self.twf.set_tracked_value_to_dict(track,processed_val,self.url_struct,subtype,False)
-        # log.debug("after: %s",self.url_struct)
+        processed_val = self.twf.check_restrictions.set_type_to_value(val, valtype, subtype)
+        self.twf.set_tracked_value_to_dict(track, processed_val, self.url_struct, subtype, False)
+        self._update_shared_struct_options()
+        # update shared values
+
+    def _update_shared_struct_options(self):
+        """Updates the info shared in both dictionaries"""
+
+        for key_s in self.url_struct:
+            struct_dict = self.url_struct[key_s]
+            self.url_struct_options.update(
+                {
+                    key_s: {
+                        "URL": struct_dict["URL"],
+                        "output_path": (
+                            self.download_path if struct_dict["Download Path"] == "" else struct_dict["Download Path"]
+                        ),
+                        "filename": None if struct_dict["File Name"] == "" else struct_dict["File Name"],
+                        "filename_prefix": (
+                            None if struct_dict["File Name Prefix"] == "" else struct_dict["File Name Prefix"]
+                        ),
+                        "skip_existing": struct_dict["Skip Existing"],
+                        "timeout": None if int(struct_dict["Timeout sec"]) <= 0 else int(struct_dict["Timeout sec"]),
+                        "max_retries": int(struct_dict["Max Retries"]),
+                        "mp3": struct_dict["MP3"],
+                    },
+                }
+            )
+            self.url_struct_options[key_s].update({"mp3": self.url_struct[key_s]["MP3"]})
 
     def pytubefix_download_progress(self, url: str, per: float):
         """
@@ -273,31 +328,31 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         """
         self.lineEdit_url.textChanged.connect(self._lineedit_url_changed)
         self.actionAbout.triggered.connect(self.show_aboutbox)
-        self.actionSet_Path.triggered.connect(self.Set_download_Path)
+        self.actionSet_Path.triggered.connect(self.set_download_path)
         self.pushButton_url.pressed.connect(self._pushbutton_url_pressed)
 
-        #right click menu
-        
-        self.tableWidget_url.customContextMenuRequested.connect(self._table_item_right_clicked)  
-    
+        # right click menu
+
+        self.tableWidget_url.customContextMenuRequested.connect(self._table_item_right_clicked)
+
     # Right click Menu
-    def _table_item_right_clicked(self, track:list, apos: QtCore.QPoint): 
+    def _table_item_right_clicked(self, track: list, apos: QtCore.QPoint):
         """Displays right click menu where item was right clicked
 
         Args:
             track (list): track of item
             apos (QtCore.QPoint): global position of event
         """
-        id_key_list,track_list=self._get_id_key_list_from_selection()
-        
-        log.debug('Rightclick Selected->  id_key_list: %s, track_list %s, track %s',id_key_list,track_list,track) 
-        if len(track)==0:
-            return    
-        self.item_menu= QtWidgets.QMenu()
+        id_key_list, track_list = self._get_id_key_list_from_selection()
+
+        log.debug("Rightclick Selected->  id_key_list: %s, track_list %s, track %s", id_key_list, track_list, track)
+        if len(track) == 0:
+            return
+        self.item_menu = QtWidgets.QMenu()
         menu_item01 = self.item_menu.addAction(f"Toggle {track}")
         self.item_menu.addSeparator()
-        menu_item10 = self.item_menu.addAction(f"URL info {track[0]}")  
-        menu_item11 = self.item_menu.addAction(f"Download Options {track[0]}")
+        menu_item10 = self.item_menu.addAction(f"URL info {track[0]}")
+        menu_item11 = self.item_menu.addAction(f"Set Download Path {track[0]}")
         self.item_menu.addSeparator()
         menu_item20 = self.item_menu.addAction(f"Download {track[0]}")
         menu_item21 = self.item_menu.addAction(f"Download {id_key_list}")
@@ -310,7 +365,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
 
         # default enabled in menu
         menu_item01.setEnabled(False)
-        menu_item10.setEnabled(True) 
+        menu_item10.setEnabled(True)
         menu_item11.setEnabled(True)
         menu_item20.setEnabled(True)
         menu_item21.setEnabled(True)
@@ -318,73 +373,75 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         menu_item60.setEnabled(True)
         menu_item61.setEnabled(True)
 
-        if len(id_key_list)==0:
+        if len(id_key_list) == 0:
             menu_item21.setEnabled(False)
             menu_item40.setEnabled(False)
             menu_item60.setEnabled(False)
-            menu_item61.setEnabled(False)      
+            menu_item61.setEnabled(False)
 
-        #itm = self.twf.get_item_from_track(track)
-        #mask = self.twf.get_mask_for_item(itm)
-        value_of_rc=self.twf.get_tracked_value_in_struct(track,self.url_struct)
-        is_itm_bool=self.twf.check_restrictions.check_type(str(bool),value_of_rc,True)
+        # itm = self.twf.get_item_from_track(track)
+        # mask = self.twf.get_mask_for_item(itm)
+        value_of_rc = self.twf.get_tracked_value_in_struct(track, self.url_struct)
+        is_itm_bool = self.twf.check_restrictions.check_type(str(bool), value_of_rc, True)
         if is_itm_bool:
             menu_item01.setEnabled(True)
             menu_item01.triggered.connect(lambda: self._toggle_bool_item(track))
-        
-        if len(id_key_list)>0:
+
+        if len(id_key_list) > 0:
             menu_item40.setEnabled(True)
-            menu_item40.triggered.connect(lambda: self._remove_url_items(id_key_list,True))
+            menu_item40.triggered.connect(lambda: self._remove_url_items(id_key_list, True))
 
-            menu_item61.triggered.connect(lambda: self._remove_url_items(self.get_id_list(),True))
+            menu_item61.triggered.connect(lambda: self._remove_url_items(self.get_id_list(), True))
+            menu_item11.triggered.connect(lambda: self._select_special_download_path(id_key_list))
 
-        # menu_item01.triggered.connect(lambda: self._rc_menu_item_clicked(indexitem,1))
-        # menu_item10.triggered.connect(lambda: self._rc_menu_item_clicked(indexitem,10)) 
-        # menu_item11.triggered.connect(lambda: self._rc_menu_item_clicked(indexitem,11))
-        # menu_item20.triggered.connect(lambda: self._rc_menu_item_clicked(indexitem,20))
-        # menu_item21.triggered.connect(lambda: self._rc_menu_item_clicked(indexitem,21))
-        # menu_item40.triggered.connect(lambda: self._rc_menu_item_clicked(indexitem,40))
-        # menu_item60.triggered.connect(lambda: self._rc_menu_item_clicked(indexitem,60))
-        # menu_item61.triggered.connect(lambda: self._rc_menu_item_clicked(indexitem,61))
-
-
-          
-        # print("Position:",apos)     
-        # parentPosition = self.tableWidget_url.mapToGlobal(QtCore.QPoint(0, 0)) 
+        # print("Position:",apos)
+        # parentPosition = self.tableWidget_url.mapToGlobal(QtCore.QPoint(0, 0))
         # self.item_menu.move(parentPosition + apos)
-        #position is already global
+        # position is already global
         self.item_menu.move(apos)
-        self.item_menu.show() 
+        self.item_menu.show()
 
-    # def _rc_menu_item_clicked(self,indexitem,menuitem):
-        
-    #     if menuitem==1:            
-    #         self.Open_Plot_Preview_Selected_Dialog()
-    #     elif menuitem==10:
-    #         self.add_new_standard_plotitem()
-    #     elif menuitem==11:
-    #         self.addclone_new_plotitem()
-    #     elif menuitem==20:
-    #         self.delete_plotitem()
-    #     elif menuitem==21:
-    #         self.add_plot_to_item()
-    #     elif menuitem==40:
-    #         self.add_plot_to_item()
-    #     elif menuitem==42:
-    #         self.Copy_plot_track()
-    #     elif menuitem==43:
-    #         self.Paste_from_plot_track()            
-    #     elif menuitem==50:
-    #         self.delete_plot()
-    #     elif menuitem==60:
-    #         self.Load_Append_Plot_Struct_json()
-    #     elif menuitem==61:            
-    #         self.Save_Item_to_json()            
-    #     else:
-    #         itm=indexitem.model().itemFromIndex(indexitem)  
-    #         track=self.track_key_tree(itm)
-    #         #print('Right item Menu track: ',track)
-    def _remove_url_items(self,id_key_list: list,prompt_msgbox:bool =False):
+    def _select_special_download_path(self, id_key_list: list):
+        """Sets a different download path than the Default path"""
+        dl_dir = self.a_dialog.open_directory_dialog(caption="Select Download directory", directory=self.download_path)
+        download_path = ""
+        if len(dl_dir) > 0:
+            for url_key in id_key_list:
+                if self.download_path != dl_dir[0]:
+                    download_path = dl_dir[0]
+                else:
+                    download_path = ""
+                    log.info("Same path as default!")
+                log.info("Setting to %s Download dir: %s", url_key, dl_dir[0])
+                track = [url_key, "Download Path"]
+                self.twf.set_tracked_value_to_dict(track, str(download_path), self.url_struct, "", False)
+                # mask returns it to ""
+                # self.twf.set_value_and_trigger_data_change(track,str(download_path),str(str),"")
+        # Refresh and update
+        self.twf.data_struct = self.url_struct
+        self.twf.set_show_dict()
+        self.twf.refresh_tablewidget(self.twf.show_dict, self.twf.modelobj, self.twf.tablewidgetobj)
+        self._update_shared_struct_options()
+        # print(self.url_struct_options)
+
+    def _is_same_list(self, list1: list, list2: list) -> bool:
+        """Compares two lists
+
+        Args:
+            list1 (list): list1
+            list2 (list): list2
+
+        Returns:
+            bool: True if the same,False if different
+        """
+        if len(list1) != len(list2):
+            return False
+        for iii, jjj in zip(list1, list2):
+            if iii != jjj:
+                return False
+        return True
+
+    def _remove_url_items(self, id_key_list: list, prompt_msgbox: bool = False):
         """Removes items from table
 
         Args:
@@ -392,65 +449,68 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             prompt_msgbox (bool, optional): Prompt message box yes/no to delete. Defaults to False.
         """
         if prompt_msgbox:
-            if self.twf._is_same_list(self.get_id_list(),id_key_list):
-                if not self.a_dialog.send_question_yes_no_msgbox("Removing ALL URLS",f"Are you sure to remove ALL items: {len(id_key_list)} in total"):
-                    return
+            if self._is_same_list(self.get_id_list(), id_key_list):
+                msg_title = "Removing ALL URLS"
+                msg_ = f"Are you sure to remove ALL items: {len(id_key_list)} in total"
             else:
-                if not self.a_dialog.send_question_yes_no_msgbox("Removing URLS",f"Are you sure to remove items {id_key_list}"):
-                    return
+                msg_title = "Removing URLS"
+                msg_ = f"Are you sure to remove items {id_key_list}"
+            if not self.a_dialog.send_question_yes_no_msgbox(msg_title, msg_):
+                return
+
         for a_key in id_key_list:
-            self.url_struct=self.get_dict_wo_key(self.url_struct,a_key)
+            self.url_struct = self.get_dict_wo_key(self.url_struct, a_key)
+            self.url_struct_options = self.get_dict_wo_key(self.url_struct_options, a_key)
         self.twf.data_struct = self.url_struct
         self.twf.set_show_dict()
         self.twf.refresh_tablewidget(self.twf.show_dict, self.twf.modelobj, self.twf.tablewidgetobj)
-        
-    
-    def get_dict_wo_key(self,dictionary:dict, key) ->dict:
+
+    def get_dict_wo_key(self, dictionary: dict, key) -> dict:
         """Returns a **shallow** copy of the dictionary without a key."""
         _dict = dictionary.copy()
         _dict.pop(key, None)
         return _dict
-    
-    def _toggle_bool_item(self,track: list):
+
+    def _toggle_bool_item(self, track: list):
         """Toggles the value of a bool item in the Table
 
         Args:
             track (list): track of item
         """
-        value_of_rc=self.twf.get_tracked_value_in_struct(track,self.url_struct)
-        is_itm_bool=self.twf.check_restrictions.check_type(str(bool),value_of_rc,True)
+        value_of_rc = self.twf.get_tracked_value_in_struct(track, self.url_struct)
+        is_itm_bool = self.twf.check_restrictions.check_type(str(bool), value_of_rc, True)
         if is_itm_bool:
-            log.debug("Toggle Triggered %s",track)
-            value_of_rc = self.twf.check_restrictions.set_type_to_value(value_of_rc,str(bool),"")
-            self.twf.set_value_and_trigger_data_change(track,not value_of_rc,"")
+            log.debug("Toggle Triggered %s", track)
+            value_of_rc = self.twf.check_restrictions.set_type_to_value(value_of_rc, str(bool), "")
+            self.twf.set_value_and_trigger_data_change(track, not value_of_rc, "")
 
             # self.twf.set_tracked_value_to_dict(track,not value_of_rc,self.twf.show_dict,"",True)
             # self.twf.refresh_tablewidget(self.twf.show_dict, self.twf.modelobj, self.twf.tablewidgetobj)
 
-    def _get_id_key_list_from_selection(self) -> tuple[list,list]:
+    def _get_id_key_list_from_selection(self) -> tuple[list, list]:
         """Gets a list of keys of the items selected
 
         Returns:
             tuple[list,list]: list of selected items, list of track lists
         """
-        selindex=self.tableWidget_url.selectedIndexes() 
-        id_key_list=[]
-        track_list=[]
+        selindex = self.tableWidget_url.selectedIndexes()
+        id_key_list = []
+        track_list = []
         for selection in selindex:
             itm = self.twf.tablewidgetobj.itemFromIndex(selection)
-            id_key=self.twf.get_key_value_from_item(itm)
-            # #itm=selection.model().itemFromIndex(selection)   
-            track=self.twf.get_track_of_item_in_table(itm)
+            id_key = self.twf.get_key_value_from_item(itm)
+            # #itm=selection.model().itemFromIndex(selection)
+            track = self.twf.get_track_of_item_in_table(itm)
             # track=self.twf.get_key_value_from_row(itm.row())
             # if isinstance(self.twf.data_struct,list):
-            #     id_key=self.twf.get([track[0],'ID']) 
+            #     id_key=self.twf.get([track[0],'ID'])
             # if isinstance(self.twf.data_struct,dict):
             #     id_key=self.get_tracked_value_in_dict([track[0],'ID'])
             if id_key not in id_key_list:
                 id_key_list.append(id_key)
                 track_list.append(track)
         return id_key_list, track_list
-    
+
     def _pushbutton_url_pressed(self):
         """
         On pressed url button add to list
@@ -471,12 +531,12 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         """
         return self.twf.get_dict_key_list(self.url_struct)
 
-    def is_id_taken(self, id):
+    def is_id_taken(self, an_id) -> bool:
         """
         Check if the id is taken
         """
         idlist = self.get_id_list()
-        if id in idlist:
+        if an_id in idlist:
             return True
         return False
 
@@ -490,10 +550,10 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         Returns:
             str: An id which is not taken.
         """
-        if self.is_id_taken(desired_id) == False and desired_id != "" and desired_id != None:
+        if not self.is_id_taken(desired_id) and desired_id != "" and desired_id is not None:
             return desired_id
 
-        if desired_id == None or desired_id != "":
+        if desired_id is None or desired_id != "":
             desired_id = "UID_"
         iii = 1
         copydid = desired_id + str(iii)
@@ -508,21 +568,28 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         """
         vid_list, vid_list_url = self.ptf.get_any_yt_videos_list(url)
         for vid_title, vid_url in zip(vid_list, vid_list_url):
-            newId = self.get_unique_id("URL" + str(self.url_id_counter))
+            new_id = self.get_unique_id("URL" + str(self.url_id_counter))
             self.url_struct.update(
                 {
-                    newId: {
+                    new_id: {
                         "Index": self.url_id_counter,
                         "Title": vid_title,
                         "URL": vid_url,
                         "DL Enable": True,
                         "MP3": False,
-                        "DL Button": "",
+                        "Skip Existing": True,
+                        "Timeout sec": 0,
+                        "Max Retries": 0,
+                        "File Name": "",
+                        "File Name Prefix": "",
+                        "Download Path": "",
                     },
                 }
             )
-            self.url_id_counter = self.url_id_counter + 1
 
+            self.url_id_counter = self.url_id_counter + 1
+        # This sets options dict
+        self._update_shared_struct_options()
         self.twf.data_struct = self.url_struct
         self.twf.set_show_dict()
         self.twf.refresh_tablewidget(self.twf.show_dict, self.twf.modelobj, self.twf.tablewidgetobj)
@@ -551,7 +618,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         Check if the given url exists or not
         """
         try:
-            response = requests.get(url)
+            response = requests.get(url, timeout=10)
         except self._get_request_exceptions_tuple() as eee:
             log.error(eee)
             return False
@@ -559,7 +626,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             return True
         return False
 
-    def Set_download_Path(self):
+    def set_download_path(self):
         """
         Sets the path for download and stores the configuration
         """
@@ -568,7 +635,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.general_config["Last_Path_for_Download"] = dl_dir
         self.set_general_config_to_yml_file()
         self.download_path = self.general_config["Last_Path_for_Download"]
-        self.label_DownloadPath.setText("Downloading to: {}".format(self.download_path))
+        self.label_DownloadPath.setText(f"Downloading to: {self.download_path}")
 
     def set_general_config_to_yml_file(self):
         """
@@ -599,7 +666,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         """
         sizes = self.splitter.sizes()
         tot = sizes[1] + sizes[0]
-        if per != None and per >= 0 and per <= 1:
+        if per is not None and 0 <= per <= 1:  # per >= 0 and per <= 1:
             pos = int(tot * per)
             newsizes = [pos, tot - pos]
             self.splitter.setSizes(newsizes)
@@ -614,7 +681,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         """
         self.groupBox.setTitle("List of URLs:")
         self.groupBox_2.setTitle("Processed URLs:")
-        self.label_DownloadPath.setText("Downloading to: {}".format(self.download_path))
+        self.label_DownloadPath.setText(f"Downloading to: {self.download_path}")
 
     def show_aboutbox(self):
         """
@@ -638,7 +705,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         msgbox.setWindowTitle(title)
         # msgbox.setIcon(QMessageBox.Information)
         msgbox.setWindowIcon(self.icon_main)
-        if self.icon_main_pixmap != None:
+        if self.icon_main_pixmap is not None:
             thepm = self.icon_main_pixmap.scaled(
                 160, 160, QtCore.Qt.KeepAspectRatio, QtCore.Qt.TransformationMode.SmoothTransformation
             )  # QtCore.Qt.FastTransformation)
@@ -656,6 +723,11 @@ class MyWindow(QtWidgets.QMainWindow):
     """
 
     def closeEvent(self, event):
+        """Close Event override
+
+        Args:
+            event (_type_): an event
+        """
 
         # ask to leave?
         result = QtWidgets.QMessageBox.question(

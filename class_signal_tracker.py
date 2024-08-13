@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import QWidget
 
 import class_pytubefix_use
 
+
 class SignalTracker(QWidget):
     """
     Only incharged of signaling information when changes are present.
@@ -17,19 +18,19 @@ class SignalTracker(QWidget):
     Signals then can be connected to GUI events.
     """
 
-    # signals from pytube fix to main 
-    thread_file_download_progress = QtCore.pyqtSignal(int, int, float)
-    thread_log_update = QtCore.pyqtSignal(str)
-    ptf_download_start = QtCore.pyqtSignal(str, str)
-    ptf_download_end = QtCore.pyqtSignal(str, str)
-    ptf_on_progress = QtCore.pyqtSignal(str, float)
-    ptf_to_log = QtCore.pyqtSignal(str)
+    # signals from pytube fix to main
+    signal_th2m_thread_file_download_progress = QtCore.pyqtSignal(int, int, float)
+    signal_th2m_thread_log_update = QtCore.pyqtSignal(str)
+    signal_th2m_download_start = QtCore.pyqtSignal(str, str)
+    signal_th2m_download_end = QtCore.pyqtSignal(str, str)
+    signal_th2m_on_progress = QtCore.pyqtSignal(str, float)
+    signal_th2m_to_log = QtCore.pyqtSignal(str)
 
-    # signals from pytubefix to thread 
-    download_start = QtCore.pyqtSignal(str, str)
-    download_end = QtCore.pyqtSignal(str, str)
-    on_progress = QtCore.pyqtSignal(str, float)
-    to_log = QtCore.pyqtSignal(str)
+    # signals from pytubefix to thread
+    signal_ptf2th_download_start = QtCore.pyqtSignal(str, str)
+    signal_ptf2th_download_end = QtCore.pyqtSignal(str, str)
+    signal_ptf2th_on_progress = QtCore.pyqtSignal(str, float)
+    signal_ptf2th_to_log = QtCore.pyqtSignal(str)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -38,7 +39,7 @@ class SignalTracker(QWidget):
         self.ptf.to_log[str].connect(self.ptf2th_to_log)
         self.ptf.download_start[str, str].connect(self.ptf2th_download_start)
         self.ptf.download_end[str, str].connect(self.ptf2th_download_end)
-        self.ptf.on_progress[list].connect(self.ptf2th_download_progress)
+        self.ptf.on_progress[list].connect(self.ptf2th_on_progress)
 
     def send_th_log_update(self, text: str):
         """Emits thread to main the log text signal
@@ -46,7 +47,7 @@ class SignalTracker(QWidget):
         Args:
             text (str): text
         """
-        self.thread_log_update.emit(text)
+        self.signal_th2m_thread_log_update.emit(text)
 
     def send_th_file_download_progress(self, num_downloaded: int, num_total: int, per: float):
         """Emits thread to main the percentage file download progress
@@ -56,7 +57,7 @@ class SignalTracker(QWidget):
             num_total (int): Total to download
             per (float): percentage
         """
-        self.thread_file_download_progress.emit(num_downloaded, num_total, per)
+        self.signal_th2m_thread_file_download_progress.emit(num_downloaded, num_total, per)
 
     def send_download_start(self, url: str, title: str):
         """Emits from thread to main the pytubefix signal download_start
@@ -65,7 +66,7 @@ class SignalTracker(QWidget):
             url (str): url
             title (str): title
         """
-        self.ptf_download_start.emit(url, title)
+        self.signal_th2m_download_start.emit(url, title)
 
     def send_download_end(self, url: str, title: str):
         """Emits from thread to main the pytubefix signal download_end
@@ -74,7 +75,7 @@ class SignalTracker(QWidget):
             url (str): url
             title (str): title
         """
-        self.ptf_download_end.emit(url, title)
+        self.signal_th2m_download_end.emit(url, title)
 
     def send_to_log(self, txt: str):
         """Emits from thread to main the pytubefix signal to_log
@@ -82,7 +83,7 @@ class SignalTracker(QWidget):
         Args:
             txt (str): log string
         """
-        self.ptf_to_log.emit(txt)
+        self.signal_th2m_to_log.emit(txt)
 
     def send_on_progress(self, url: str, percentage: float):
         """Emits from thread to main the pytubefix signal on_progress
@@ -91,7 +92,7 @@ class SignalTracker(QWidget):
             url (str): the url
             percentage (float): percentage
         """
-        self.ptf_on_progress.emit(url, percentage)
+        self.signal_th2m_on_progress.emit(url, percentage)
 
     def ptf2th_download_start(self, url: str, title: str):
         """Emits from pytubefix to thread signal download_start
@@ -100,7 +101,7 @@ class SignalTracker(QWidget):
             url (str): url
             title (str): title
         """
-        self.download_start.emit(url, title)
+        self.signal_ptf2th_download_start.emit(url, title)
 
     def ptf2th_download_end(self, url: str, title: str):
         """Emits from pytubefix to to thread signal download_end
@@ -109,7 +110,7 @@ class SignalTracker(QWidget):
             url (str): url
             title (str): title
         """
-        self.download_end.emit(url, title)
+        self.signal_ptf2th_download_end.emit(url, title)
 
     def ptf2th_to_log(self, txt: str):
         """Emits from pytubefix to thread signal to_log
@@ -117,13 +118,13 @@ class SignalTracker(QWidget):
         Args:
             txt (str): log string
         """
-        self.to_log.emit(txt)
+        self.signal_ptf2th_to_log.emit(txt)
 
-    def ptf2th_on_progress(self, alist:list):
+    def ptf2th_on_progress(self, alist: list):
         """Emits from pytubefix to thread signal on_progress
 
         Args:
             url (str): the url
             percentage (float): percentage
         """
-        self.on_progress.emit(alist)
+        self.signal_ptf2th_on_progress.emit(alist)

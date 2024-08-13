@@ -58,7 +58,6 @@ class Dialogs(QWidget):
         # set default filter "all"
         self.get_filter("all")
 
-
     def _check_selected_filter(self, filter_string: str, selected_filter: str) -> bool:
         """Check for selected filter in the filters list
 
@@ -352,8 +351,11 @@ class Dialogs(QWidget):
         # clear the line edit contents whenever the current directory changes
         dialog.directoryEntered.connect(lambda: line_edit.setText(""))
 
-        dialog.exec_()
-        return dialog.selectedFiles()
+        result = dialog.exec_()  # 1 when accepted 0 when rejected/cancelled/closed
+        # print(result)
+        if result == 1:
+            return dialog.selectedFiles()
+        return []
 
     def send_question_yes_no_msgbox(self, title: str, amsg: str) -> bool:
         """Makes yes/no messagebox

@@ -56,10 +56,10 @@ class ThreadQueueDownloadStream(threading.Thread):
         self.ptf = class_pytubefix_use.use_pytubefix()
         self.st = class_signal_tracker.SignalTracker()
 
-        self.st.to_log[str].connect(self.pytubefix_log)
-        self.st.download_start[str, str].connect(self.pytubefix_download_start)
-        self.st.download_end[str, str].connect(self.pytubefix_download_end)
-        self.st.on_progress[list].connect(self.pytubefix_download_progress)
+        self.st.signal_ptf2th_to_log[str].connect(self.pytubefix_log)
+        self.st.signal_ptf2th_download_start[str, str].connect(self.pytubefix_download_start)
+        self.st.signal_ptf2th_download_end[str, str].connect(self.pytubefix_download_end)
+        # self.st.signal_ptf2th_on_progress[list].connect(self.pytubefix_download_progress)
 
         self.cycle_time = cycle_time
         self.killer_event = kill_event
@@ -89,8 +89,7 @@ class ThreadQueueDownloadStream(threading.Thread):
         self.actual_url = ""
         self.actual_url_properties = {}
         self.actual_url_index = -1
-        self.last_print =    [0,0,0]
-
+        self.last_print = [0, 0, 0]
 
     def get_url_list(self, file_properties_dict: dict) -> list:
         """Get URL list of files to download
@@ -167,7 +166,7 @@ class ThreadQueueDownloadStream(threading.Thread):
         [bytes_received, filesize] = progress_list
         progress_per = self.get_progress_percentage(bytes_received, filesize, per_ini=0, per_end=100)
         self.st.send_on_progress(f"{self.actual_url_index} " + self.actual_url, progress_per)
-        print (f"{self.actual_url_index} " + self.actual_url, progress_per)
+        print(f"{self.actual_url_index} " + self.actual_url, progress_per)
 
     def pytubefix_download_start(self, url: str, title: str):
         """Receives Signal form Pytube fix when a Download is started
@@ -315,20 +314,20 @@ class ThreadQueueDownloadStream(threading.Thread):
         # Finished when
         # self.file_queue_size is empty
         # and self.out_queue_size is self.number_of_files_to_download
-        new_print= [
+        new_print = [
             self.number_of_files_to_download,
             self.number_of_files_downloaded,
             self.file_queue_size,
-            ]
-        if new_print != self.last_print :
+        ]
+        if new_print != self.last_print:
             print(
                 "Exit Condition ->",
                 self.number_of_files_to_download == self.number_of_files_downloaded and self.file_queue_size,
             )
-            print("(to dl, dlded , fqsize) ", new_print )
-            self.last_print =    new_print
+            print("(to dl, dlded , fqsize) ", new_print)
+            self.last_print = new_print
             print("Finished ->", self.download_finished)
-        
+
         if self.number_of_files_to_download == self.number_of_files_downloaded and self.file_queue_size == 0:
             self.download_finished = True
 
@@ -363,8 +362,7 @@ class ThreadQueueDownloadStream(threading.Thread):
 
 
 def main():
-    """Standalone Test for stream 
-    """
+    """Standalone Test for stream"""
     import sys
     from PyQt5 import QtWidgets
 
