@@ -56,10 +56,14 @@ class ThreadQueueDownloadStream(threading.Thread):
         self.ptf = class_pytubefix_use.use_pytubefix()
         self.st = class_signal_tracker.SignalTracker()
 
-        self.st.signal_ptf2th_to_log[str].connect(self.pytubefix_log)
-        self.st.signal_ptf2th_download_start[str, str].connect(self.pytubefix_download_start)
-        self.st.signal_ptf2th_download_end[str, str].connect(self.pytubefix_download_end)
+        # self.st.signal_ptf2th_to_log[str].connect(self.pytubefix_log)
+        # self.st.signal_ptf2th_download_start[str, str].connect(self.pytubefix_download_start)
+        # self.st.signal_ptf2th_download_end[str, str].connect(self.pytubefix_download_end)
         # self.st.signal_ptf2th_on_progress[list].connect(self.pytubefix_download_progress)
+        self.ptf.to_log[str].connect(self.pytubefix_log)
+        self.ptf.download_start[str, str].connect(self.pytubefix_download_start)
+        self.ptf.download_end[str, str].connect(self.pytubefix_download_end)
+        self.ptf.on_progress[list].connect(self.pytubefix_download_progress)
 
         self.cycle_time = cycle_time
         self.killer_event = kill_event
@@ -89,7 +93,7 @@ class ThreadQueueDownloadStream(threading.Thread):
         self.actual_url = ""
         self.actual_url_properties = {}
         self.actual_url_index = -1
-        self.last_print = [0, 0, 0]
+        # self.last_print = [0, 0, 0]
 
     def get_url_list(self, file_properties_dict: dict) -> list:
         """Get URL list of files to download
@@ -150,7 +154,8 @@ class ThreadQueueDownloadStream(threading.Thread):
         """
         self.st.send_to_log(log_msg)
         if "error" in log_msg.lower():
-            log.error("Error while downloading %s %s", self.actual_url_index, self.actual_url_info)
+            #log.error("Error while downloading %s %s", self.actual_url_index, self.actual_url_info)
+            log.error("Error while downloading %s", self.actual_url_index)
             log.error(log_msg)
             self.quit()
         elif "warning" in log_msg.lower():
@@ -166,7 +171,7 @@ class ThreadQueueDownloadStream(threading.Thread):
         [bytes_received, filesize] = progress_list
         progress_per = self.get_progress_percentage(bytes_received, filesize, per_ini=0, per_end=100)
         self.st.send_on_progress(f"{self.actual_url_index} " + self.actual_url, progress_per)
-        print(f"{self.actual_url_index} " + self.actual_url, progress_per)
+        # print(f"{self.actual_url_index} " + self.actual_url, progress_per)
 
     def pytubefix_download_start(self, url: str, title: str):
         """Receives Signal form Pytube fix when a Download is started
@@ -177,7 +182,7 @@ class ThreadQueueDownloadStream(threading.Thread):
         """
         self.st.send_download_start(f"{self.actual_url_index} " + url, title)
         log.info("Download started: %s \nURL: %s", title, url)
-        log.info(self.actual_url_info)
+        #log.info(self.actual_url_info)
 
     def pytubefix_download_end(self, url: str, title: str):
         """Receives Signal form Pytube fix when a Download is ended
@@ -198,23 +203,24 @@ class ThreadQueueDownloadStream(threading.Thread):
             self.event_get_next_file_to_download.clear()
             # get next url
             a_url = self.add_to_output_queue()
-            # ----------------  here sets all options
-            # Index initialized in -1 -> first index = 0
-            self.actual_url_index = self.actual_url_index + 1
-            self.actual_url = a_url
-            self.actual_url_properties = self.get_download_options_for_url(self.actual_url_index, self.actual_url)
-            print(self.actual_url_properties)
-            self.actual_url_info = self.ptf.get_url_info(a_url)
-            self.ptf.download_video(
-                url=self.actual_url_properties["URL"],
-                output_path=self.actual_url_properties["output_path"],
-                filename=self.actual_url_properties["filename"],
-                filename_prefix=self.actual_url_properties["filename_prefix"],
-                skip_existing=self.actual_url_properties["skip_existing"],
-                timeout=self.actual_url_properties["timeout"],
-                max_retries=self.actual_url_properties["max_retries"],
-                mp3=self.actual_url_properties["mp3"],
-            )
+            if a_url is not None:
+                # ----------------  here sets all options
+                # Index initialized in -1 -> first index = 0
+                self.actual_url_index = self.actual_url_index + 1
+                self.actual_url = a_url
+                self.actual_url_properties = self.get_download_options_for_url(self.actual_url_index, self.actual_url)
+                #print(self.actual_url_properties)
+                self.actual_url_info = self.ptf.get_url_info(a_url)
+                self.ptf.download_video(
+                    url=self.actual_url_properties["URL"],
+                    output_path=self.actual_url_properties["output_path"],
+                    filename=self.actual_url_properties["filename"],
+                    filename_prefix=self.actual_url_properties["filename_prefix"],
+                    skip_existing=self.actual_url_properties["skip_existing"],
+                    timeout=self.actual_url_properties["timeout"],
+                    max_retries=self.actual_url_properties["max_retries"],
+                    mp3=self.actual_url_properties["mp3"],
+                )
 
     def add_one_line_to_buffer_ev(self):
         """Set event to add one line"""
@@ -290,9 +296,11 @@ class ThreadQueueDownloadStream(threading.Thread):
             log.info("Successfully downloaded %s Files!", self.number_of_files_to_download)
         if self.killer_event.is_set():
             log.info("Stream Queue Killing event Detected!")
-            log.info("Successfully downloaded %s Files!", self.number_of_files_downloaded)
+            log.info("Successfully downloaded %s File(s)!", self.number_of_files_downloaded)
         log.info("File download thread Ended!")
-
+        # True if exit normally False was killed
+        self.st.send_th_exit(not self.killer_event.is_set())
+        time.sleep(1)
         # self.killer_event.set()
         # self.quit()
 
@@ -314,19 +322,20 @@ class ThreadQueueDownloadStream(threading.Thread):
         # Finished when
         # self.file_queue_size is empty
         # and self.out_queue_size is self.number_of_files_to_download
-        new_print = [
-            self.number_of_files_to_download,
-            self.number_of_files_downloaded,
-            self.file_queue_size,
-        ]
-        if new_print != self.last_print:
-            print(
-                "Exit Condition ->",
-                self.number_of_files_to_download == self.number_of_files_downloaded and self.file_queue_size,
-            )
-            print("(to dl, dlded , fqsize) ", new_print)
-            self.last_print = new_print
-            print("Finished ->", self.download_finished)
+        # to debug
+        # new_print = [
+        #     self.number_of_files_to_download,
+        #     self.number_of_files_downloaded,
+        #     self.file_queue_size,
+        # ]
+        # if new_print != self.last_print or self.download_finished:
+        #     print(
+        #         "Exit Condition ->",
+        #         self.number_of_files_to_download == self.number_of_files_downloaded and self.file_queue_size,
+        #     )
+        #     print("(to dl, dlded , fqsize) ", new_print)
+        #     self.last_print = new_print
+        #     print("Finished ->", self.download_finished)
 
         if self.number_of_files_to_download == self.number_of_files_downloaded and self.file_queue_size == 0:
             self.download_finished = True
@@ -342,7 +351,8 @@ class ThreadQueueDownloadStream(threading.Thread):
             a_url = self.file_queue.get_nowait()
             self.output_queue.put(a_url)
         except queue.Empty:
-            pass
+            log.info("@"*100 +"\nQUEUE FINISHED\n"+"@"*100)
+            self.download_finished = True
         self.update_queue_sizes()
         self.refresh_progress_bar_files_downloaded()
         return a_url

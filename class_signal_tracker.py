@@ -21,6 +21,7 @@ class SignalTracker(QWidget):
     # signals from pytube fix to main
     signal_th2m_thread_file_download_progress = QtCore.pyqtSignal(int, int, float)
     signal_th2m_thread_log_update = QtCore.pyqtSignal(str)
+    signal_th2m_thread_end = QtCore.pyqtSignal(bool)
     signal_th2m_download_start = QtCore.pyqtSignal(str, str)
     signal_th2m_download_end = QtCore.pyqtSignal(str, str)
     signal_th2m_on_progress = QtCore.pyqtSignal(str, float)
@@ -41,6 +42,14 @@ class SignalTracker(QWidget):
         self.ptf.download_end[str, str].connect(self.ptf2th_download_end)
         self.ptf.on_progress[list].connect(self.ptf2th_on_progress)
 
+    def send_th_exit(self, fine_exit: bool):
+        """Emits thread to main the thread exit
+
+        Args:
+            fine_exit (bool): True if exited normally, False if it was killed
+        """
+        self.signal_th2m_thread_end.emit(fine_exit)
+    
     def send_th_log_update(self, text: str):
         """Emits thread to main the log text signal
 

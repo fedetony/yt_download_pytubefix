@@ -35,7 +35,7 @@ class use_pytubefix(QWidget):
         try:
             yt = YouTube(url, on_progress_callback = self._on_progress)
         except Exception as eee:
-            print(eee)
+            #print(eee)
             self.to_log.emit("Error Video: {}".format(eee))
             yt = None
         return yt
@@ -44,7 +44,7 @@ class use_pytubefix(QWidget):
         try:
             pl = Playlist(url)
         except Exception as eee:
-            print(eee)
+            #print(eee)
             self.to_log.emit("Error Playlist: {}".format(eee))
             pl = None
         return pl
@@ -53,8 +53,8 @@ class use_pytubefix(QWidget):
         try:
             ch = Channel(url)
         except Exception as eee:
-            print(eee)
-            self.to_log.emit("Error Channel: {}".format(eee))
+            #print(eee)
+            self.to_log.emit(f"Error Channel: {eee}")
             ch = None
         return ch
 
@@ -68,7 +68,7 @@ class use_pytubefix(QWidget):
                 ):    
         yt = self.get_yt_video_from_url(url)
         if yt:
-            print(yt.title)
+            self.to_log.emit(f"PyTubefix Downloading: {yt.title}")
             if not mp3:
                 ys = yt.streams.get_highest_resolution()
             else:
@@ -84,7 +84,7 @@ class use_pytubefix(QWidget):
                     mp3 = mp3)
                 self.download_end.emit(url,yt.title)
             except Exception as eee:
-                print(eee)
+                #print(eee)
                 self.to_log.emit("Error Downloading: {}".format(eee))
 
     
@@ -245,7 +245,7 @@ class use_pytubefix(QWidget):
             for nnn, video in enumerate(pl.videos):
                 #ys = video.streams.get_audio_only()
                 #ys.download(mp3=in_mp3) # pass the parameter mp3=True to save in .mp3
-                print(video.title)
+                self.to_log.emit(f"{video.title}")
                 if not mp3:
                     ys = video.streams.get_highest_resolution()
                 else:
@@ -265,7 +265,7 @@ class use_pytubefix(QWidget):
                         mp3 = mp3)
                     self.download_end.emit(str(video.watch_url),video.title)
                 except Exception as eee:
-                    print(eee)
+                    #print(eee)
                     self.to_log.emit("Error Downloading: {}".format(eee))
     
     def download_mp3_authentication(self,url = "url"):
@@ -282,8 +282,7 @@ class use_pytubefix(QWidget):
         #viewing available subtitles:
         yt = YouTube(url)
         subtitles = yt.captions
-
-        print(subtitles)
+        self.to_log.emit(f"{subtitles}")
     
     def get_subtitles(self,url,language='en'):
         yt = self.get_yt_video_from_url(url)
@@ -292,7 +291,7 @@ class use_pytubefix(QWidget):
                 caption = yt.captions.get_by_language_code(language)
                 return caption.generate_srt_captions()
             except Exception as eee:
-                print(eee)
+                #print(eee)
                 self.to_log.emit("Error Captions: {}".format(eee))       
         return ''
     
@@ -308,7 +307,7 @@ class use_pytubefix(QWidget):
         """
         ch = self.get_yt_channel_from_url(urlchannel)
         if ch:
-            print(f'Channel name: {ch.channel_name}')
+            self.to_log.emit(f'Channel name: {ch.channel_name}')
             return ch.channel_name
         return None
     
@@ -318,7 +317,7 @@ class use_pytubefix(QWidget):
         """
         pl = self.get_yt_playlist_from_url(urlplaylist)
         if pl:
-            print(f'Playlist title: {pl.title}')
+            #print(f'Playlist title: {pl.title}')
             return pl.title
         return None
     
@@ -332,13 +331,13 @@ class use_pytubefix(QWidget):
                 mp3: bool = False,
                 ):    
         # to download all videos from a channel:
-        c = self.get_yt_channel_from_url(url)
-        if c:
-            print(f'Downloading videos by: {c.channel_name}')
-            for nnn, video in enumerate(c.videos):
+        ccc = self.get_yt_channel_from_url(url)
+        if ccc:
+            self.to_log.emit(f'Downloading videos by: {ccc.channel_name}')
+            for nnn, video in enumerate(ccc.videos):
                 #ys = video.streams.get_audio_only()
                 #ys.download(mp3=in_mp3) # pass the parameter mp3=True to save in .mp3
-                print(video.title)
+                self.to_log.emit(f'Downloading video: {video.title}')
                 if not mp3:
                     ys = video.streams.get_highest_resolution()
                 else:
@@ -358,5 +357,5 @@ class use_pytubefix(QWidget):
                         mp3 = mp3)
                     self.download_end.emit(str(video.watch_url),video.title)
                 except Exception as eee:
-                    print(eee)
+                    #print(eee)
                     self.to_log.emit("Error Downloading: {}".format(eee))

@@ -22,6 +22,7 @@ import os
 import logging
 import yaml
 import requests
+import threading
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -32,6 +33,7 @@ import class_file_dialogs
 import class_table_widget_functions
 import class_pytubefix_use
 import class_signal_tracker
+import thread_download_pytubefix
 import yt_pytubefix_gui
 
 # import datetime
@@ -93,6 +95,8 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.default_config_path = None
         self.path_config_file = None
         self.item_menu = None
+        self.threads_event_list=[]
+        self.threads_mapping_dict={}
 
     def start_up(self):
         """Start the UI first to get all objects in"""
@@ -185,11 +189,11 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
 
         # --------------use_pytubefix
         self.ptf = class_pytubefix_use.use_pytubefix()
-        self.st = class_signal_tracker.SignalTracker()
-        self.st.signal_th2m_to_log[str].connect(self.pytubefix_log)
-        self.st.signal_th2m_download_start[str, str].connect(self.pytubefix_download_start)
-        self.st.signal_th2m_download_end[str, str].connect(self.pytubefix_download_end)
-        self.st.signal_th2m_on_progress[str, float].connect(self.pytubefix_download_progress)
+        # self.st = class_signal_tracker.SignalTracker()
+        # self.st.signal_th2m_to_log[str].connect(self.pytubefix_log)
+        # self.st.signal_th2m_download_start[str, str].connect(self.pytubefix_download_start)
+        # self.st.signal_th2m_download_end[str, str].connect(self.pytubefix_download_end)
+        # self.st.signal_th2m_on_progress[str, float].connect(self.pytubefix_download_progress)
 
         # -----------Splitter
         # self._set_splitter_pos(400,1/3) #initial position
@@ -352,9 +356,9 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         menu_item01 = self.item_menu.addAction(f"Toggle {track}")
         self.item_menu.addSeparator()
         menu_item10 = self.item_menu.addAction(f"URL info {track[0]}")
-        menu_item11 = self.item_menu.addAction(f"Set Download Path {track[0]}")
+        menu_item11 = self.item_menu.addAction(f"Set Download Path {id_key_list}")
         self.item_menu.addSeparator()
-        menu_item20 = self.item_menu.addAction(f"Download {track[0]}")
+        # menu_item20 = self.item_menu.addAction(f"Download {track[0]}")
         menu_item21 = self.item_menu.addAction(f"Download {id_key_list}")
         self.item_menu.addSeparator()
         menu_item40 = self.item_menu.addAction(f"Remove {id_key_list}")
@@ -367,13 +371,14 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         menu_item01.setEnabled(False)
         menu_item10.setEnabled(True)
         menu_item11.setEnabled(True)
-        menu_item20.setEnabled(True)
+        #menu_item20.setEnabled(True)
         menu_item21.setEnabled(True)
         menu_item40.setEnabled(True)
         menu_item60.setEnabled(True)
         menu_item61.setEnabled(True)
 
         if len(id_key_list) == 0:
+            menu_item11.setEnabled(False)
             menu_item21.setEnabled(False)
             menu_item40.setEnabled(False)
             menu_item60.setEnabled(False)
@@ -388,11 +393,16 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             menu_item01.triggered.connect(lambda: self._toggle_bool_item(track))
 
         if len(id_key_list) > 0:
+            menu_item11.setEnabled(True)
+            menu_item11.triggered.connect(lambda: self._select_special_download_path(id_key_list))
+
             menu_item40.setEnabled(True)
             menu_item40.triggered.connect(lambda: self._remove_url_items(id_key_list, True))
 
             menu_item61.triggered.connect(lambda: self._remove_url_items(self.get_id_list(), True))
-            menu_item11.triggered.connect(lambda: self._select_special_download_path(id_key_list))
+
+            menu_item21.setEnabled(True)
+            menu_item21.triggered.connect(lambda: self._download_selected_items(id_key_list))
 
         # print("Position:",apos)
         # parentPosition = self.tableWidget_url.mapToGlobal(QtCore.QPoint(0, 0))
@@ -400,6 +410,57 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         # position is already global
         self.item_menu.move(apos)
         self.item_menu.show()
+    
+    def _download_selected_items(self, id_key_list: list):
+        """
+        Downloads the items in the list, starts a thread for each download
+        """
+        # prepare dict
+        if len(self.threads_event_list)<=5:
+            file_properties_dict={}
+            map_list=[]
+            for index, url_id in enumerate(id_key_list):
+                file_properties_dict.update({str(index):self.url_struct_options[url_id]})
+                map_list.append((url_id,file_properties_dict))
+            self.threads_mapping_dict.update({})
+            kill_ev = threading.Event()
+            kill_ev.clear() 
+            cycle_time = 0.1
+            q_dl_stream = thread_download_pytubefix.ThreadQueueDownloadStream(file_properties_dict, cycle_time, kill_ev)
+            local_st = class_signal_tracker.SignalTracker()
+            local_st.signal_th2m_to_log[str].connect(lambda: self.pytubefix_log)
+            local_st.signal_th2m_download_start[str, str].connect(lambda: self.pytubefix_download_start)
+            local_st.signal_th2m_download_end[str, str].connect(lambda: self.pytubefix_download_end)
+            local_st.signal_th2m_on_progress[str, float].connect(lambda: self.pytubefix_download_progress)
+            local_st.signal_th2m_thread_end[bool].connect(lambda: self._thread_exit_event)
+            self.threads_event_list.append((kill_ev,local_st,q_dl_stream))
+            q_dl_stream.start()
+            log.info("Thread started with %s",id_key_list)
+        else:
+            log.error("There are already 5 downloading threads simultaneously!")
+
+    def _thread_exit_event(self,fine_exit:bool):
+        """Thread ended and exit signal
+
+        Args:
+            fine_exit (bool): Ended normally or was killed
+        """
+        print(" :) "*100)
+        if fine_exit:
+            log.info("Tread Finalized correctly")
+        th_ev_list=self.threads_event_list.copy()
+        for list_index,threads in enumerate(th_ev_list):
+            q_dl_stream=threads[2]
+            try:
+                q_dl_stream.download_finished
+            except Exception as eee:
+                print(eee)
+            print("On Close -> number of threads: ",len(ui.threads_event_list))
+            print("Is thread alive? ->",list_index, q_dl_stream.is_alive())
+            if not q_dl_stream.is_alive():
+                print("Is thread alive? ->",list_index, q_dl_stream.is_alive())
+                q_dl_stream.join()
+                self.threads_event_list.pop(list_index)
 
     def _select_special_download_path(self, id_key_list: list):
         """Sets a different download path than the Default path"""
@@ -748,6 +809,17 @@ class MyWindow(QtWidgets.QMainWindow):
             # except Exception as e:
             #     # log.error(e)
             #     pass
+            # kill threads
+            # threads_event_list is list of tuples : (kill_ev,local_st,q_dl_stream)
+            print("On Close -> number of threads: ",len(ui.threads_event_list))
+            for threads in ui.threads_event_list:
+                try:
+                    kill_ev=threads[0]
+                    kill_ev.set()
+                    q_dl_stream=threads[2]
+                    q_dl_stream.join()
+                except:
+                    pass
 
             event.accept()
 
