@@ -49,7 +49,7 @@ class SignalTracker(QWidget):
             fine_exit (bool): True if exited normally, False if it was killed
         """
         self.signal_th2m_thread_end.emit(fine_exit)
-    
+        
     def send_th_log_update(self, text: str):
         """Emits thread to main the log text signal
 

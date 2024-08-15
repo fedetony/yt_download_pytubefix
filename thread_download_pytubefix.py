@@ -32,7 +32,7 @@ class ThreadQueueDownloadStream(threading.Thread):
     the files given.
     """
 
-    def __init__(self, file_properties_dict: dict, cycle_time: float, kill_event: threading.Event):
+    def __init__(self, file_properties_dict: dict, cycle_time: float, kill_event: threading.Event, st : class_signal_tracker.SignalTracker):
         """Thread initiation
 
         Args:
@@ -54,7 +54,7 @@ class ThreadQueueDownloadStream(threading.Thread):
         """
         threading.Thread.__init__(self, name="File download thread")
         self.ptf = class_pytubefix_use.use_pytubefix()
-        self.st = class_signal_tracker.SignalTracker()
+        self.st = st # class_signal_tracker.SignalTracker()
 
         # self.st.signal_ptf2th_to_log[str].connect(self.pytubefix_log)
         # self.st.signal_ptf2th_download_start[str, str].connect(self.pytubefix_download_start)
@@ -300,7 +300,6 @@ class ThreadQueueDownloadStream(threading.Thread):
         log.info("File download thread Ended!")
         # True if exit normally False was killed
         self.st.send_th_exit(not self.killer_event.is_set())
-        time.sleep(1)
         # self.killer_event.set()
         # self.quit()
 
@@ -351,7 +350,7 @@ class ThreadQueueDownloadStream(threading.Thread):
             a_url = self.file_queue.get_nowait()
             self.output_queue.put(a_url)
         except queue.Empty:
-            log.info("@"*100 +"\nQUEUE FINISHED\n"+"@"*100)
+            #log.info("@"*100 +"\nQUEUE FINISHED\n"+"@"*100)
             self.download_finished = True
         self.update_queue_sizes()
         self.refresh_progress_bar_files_downloaded()
@@ -392,9 +391,9 @@ def main():
             "mp3": False,
         }
     }
-
+    an_st = class_signal_tracker.SignalTracker()
     cycle_time = 0.1
-    q_dl_stream = ThreadQueueDownloadStream(file_properties_dict, cycle_time, kill_ev)
+    q_dl_stream = ThreadQueueDownloadStream(file_properties_dict, cycle_time, kill_ev, an_st)
     q_dl_stream.start()
 
     # while not kill_ev.is_set():

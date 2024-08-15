@@ -23,6 +23,7 @@ import logging
 import yaml
 import requests
 import threading
+import time
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -258,6 +259,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             url (str): url of download
             title (str): title of the download
         """
+        # print("========== >>>>>> Main got Signal Start <<<<<<< ==========  \n"*5)
         self.ongoing_download_url = url
         self.ongoing_download_title = title
         log.info("Download started for %s", title)
@@ -426,16 +428,17 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             kill_ev = threading.Event()
             kill_ev.clear() 
             cycle_time = 0.1
-            q_dl_stream = thread_download_pytubefix.ThreadQueueDownloadStream(file_properties_dict, cycle_time, kill_ev)
             local_st = class_signal_tracker.SignalTracker()
-            local_st.signal_th2m_to_log[str].connect(lambda: self.pytubefix_log)
-            local_st.signal_th2m_download_start[str, str].connect(lambda: self.pytubefix_download_start)
-            local_st.signal_th2m_download_end[str, str].connect(lambda: self.pytubefix_download_end)
-            local_st.signal_th2m_on_progress[str, float].connect(lambda: self.pytubefix_download_progress)
-            local_st.signal_th2m_thread_end[bool].connect(lambda: self._thread_exit_event)
+            q_dl_stream = thread_download_pytubefix.ThreadQueueDownloadStream(file_properties_dict, cycle_time, kill_ev, local_st)
+            local_st.signal_th2m_to_log[str].connect(self.pytubefix_log)
+            local_st.signal_th2m_download_start[str, str].connect(self.pytubefix_download_start)
+            local_st.signal_th2m_download_end[str, str].connect(self.pytubefix_download_end)
+            local_st.signal_th2m_on_progress[str, float].connect(self.pytubefix_download_progress)
+            local_st.signal_th2m_thread_end[bool].connect(self._thread_exit_event)
             self.threads_event_list.append((kill_ev,local_st,q_dl_stream))
             q_dl_stream.start()
             log.info("Thread started with %s",id_key_list)
+            print(q_dl_stream.is_alive())
         else:
             log.error("There are already 5 downloading threads simultaneously!")
 
@@ -445,22 +448,20 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         Args:
             fine_exit (bool): Ended normally or was killed
         """
-        print(" :) "*100)
+        log.info("========== >>>>>> Thread Finished <<<<<<< ==========  ")
         if fine_exit:
             log.info("Tread Finalized correctly")
         th_ev_list=self.threads_event_list.copy()
+        log.info("Number of running threads: %s", len(self.threads_event_list))
+        time.sleep(1)
         for list_index,threads in enumerate(th_ev_list):
             q_dl_stream=threads[2]
-            try:
-                q_dl_stream.download_finished
-            except Exception as eee:
-                print(eee)
-            print("On Close -> number of threads: ",len(ui.threads_event_list))
-            print("Is thread alive? ->",list_index, q_dl_stream.is_alive())
+            # print("Is thread alive? ->",list_index, q_dl_stream.is_alive())
             if not q_dl_stream.is_alive():
-                print("Is thread alive? ->",list_index, q_dl_stream.is_alive())
+                # print("Is thread alive? ->",list_index, q_dl_stream.is_alive())
                 q_dl_stream.join()
                 self.threads_event_list.pop(list_index)
+        log.info("Number of running threads: %s", len(self.threads_event_list))
 
     def _select_special_download_path(self, id_key_list: list):
         """Sets a different download path than the Default path"""
