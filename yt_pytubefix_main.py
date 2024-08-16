@@ -20,10 +20,11 @@ __gitaccount__ = "<a href=\"https://github.com/fedetony\">' Github for fedetony'
 import sys
 import os
 import logging
-import yaml
-import requests
 import threading
 import time
+
+import yaml
+import requests
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -81,10 +82,12 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.general_config = {}
         self.download_path = ""
         self.url_struct = {}
+        self.url_struct_results={}
         self.url_id_counter = 0
         self.ongoing_download_url = None
         self.ongoing_download_title = None
         self.url_struct_mask = {}
+        self.url_struct_results_mask={}
         self.url_struct_options = {}
         self.icon_main_pixmap = None
         self.icon_main_pixmap = None
@@ -96,8 +99,8 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.default_config_path = None
         self.path_config_file = None
         self.item_menu = None
-        self.threads_event_list=[]
-        self.threads_mapping_dict={}
+        self.threads_event_list = []
+        self.threads_mapping_dict = {}
 
     def start_up(self):
         """Start the UI first to get all objects in"""
@@ -115,6 +118,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.url_struct_mask = {
             "__any__": {
                 "Index": {"__m__1": "is_unique", "__mv__1": ""},
+                "DL Status": {"__m__1": "is_not_change", "__mv__1": ""},
                 "Title": {"__m__1": "is_value_type", "__mv__1": str(str)},
                 "URL": {"__m__1": "is_value_type", "__mv__1": str(str), "__m__2": "is_not_change", "__mv__2": ""},
                 "DL Enable": {"__m__1": "is_value_type", "__mv__1": str(bool)},
@@ -187,6 +191,17 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
 
         # self.tvf.Expand_to_Depth(1)
         # self.tvf.set_Icons(self.icons_dict)
+        self.twf2 = class_table_widget_functions.TableWidgetFunctions(
+            self.tableWidget_results, self.url_struct_results, self.url_struct_results_mask, None, []
+        )
+        # self.model=self.twf.modelobj
+        #self.twf2.signal_data_change[list, str, str, str].connect(self._table_widget_data_changed)
+        #self.twf2.signal_item_button_right_clicked[list, QtCore.QPoint].connect(self._table_item_right_clicked)
+        
+        # self.icons_dict={'Plots':self.icon_main}
+
+        # self.tvf.Expand_to_Depth(1)
+        # self.tvf.set_Icons(self.icons_dict)
 
         # --------------use_pytubefix
         self.ptf = class_pytubefix_use.use_pytubefix()
@@ -249,8 +264,22 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         """
         # url = self.ongoing_download_url
         # This is momentary
+        print("========== >>>>>> Main got Signal Pytube fix Progress <<<<<<< ==========  \n"*5)
         txt = f"Downloaded {per}% for {url}"
         log.info(txt)
+        url_id=self._identify_urlid_from_url_str(url)
+        print("url_id:", url_id, " url:",url)
+        
+        # add widget to twf
+        it_w_dict=self.twf.itemwidget_dict.copy()
+        track_list = it_w_dict["track_list"]
+        widget_list = it_w_dict["widget_list"]
+        #get widget object
+        for track, progress_bar in zip(track_list,widget_list):
+            if self._is_same_list(track,[url_id, "DL Status"]):
+                if isinstance(progress_bar,QtWidgets.QProgressBar):
+                    progress_bar.setProperty("value", per)
+                
 
     def pytubefix_download_start(self, url: str, title: str):
         """Receives Signal form Pytube fix when a Download is started
@@ -259,10 +288,61 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             url (str): url of download
             title (str): title of the download
         """
-        # print("========== >>>>>> Main got Signal Start <<<<<<< ==========  \n"*5)
+        print("========== >>>>>> Main got Signal Start <<<<<<< ==========  \n"*5)
+        
         self.ongoing_download_url = url
         self.ongoing_download_title = title
         log.info("Download started for %s", title)
+        url_id=self._identify_urlid_from_url_str(url)
+        print("url_id:", url_id, " url:",url,"\ntitle:",title)
+        
+        # create progressbar object
+        progress_bar = QtWidgets.QProgressBar()
+        progress_bar.setGeometry(QtCore.QRect(60, 60, 118, 23))
+        progress_bar.setProperty("value", 0)
+        progress_bar.setObjectName(f"{url_id}_progressBar")
+        # add widget to twf
+        it_w_dict=self.twf.itemwidget_dict.copy()
+        track_list = it_w_dict["track_list"]
+        track_list.append([url_id, "DL Status"])
+        widget_list = it_w_dict["widget_list"]
+        widget_list.append(progress_bar)
+        it_w_dict.update({"track_list":track_list})
+        it_w_dict.update({"widget_list":widget_list})
+        self.twf.set_items_widgets(it_w_dict)
+
+        self.twf.data_struct = self.url_struct
+        self.twf.set_show_dict()
+        self.twf.refresh_tablewidget(self.twf.show_dict, self.twf.modelobj, self.twf.tablewidgetobj)
+
+        
+
+    def _identify_urlid_from_url_str(self,url_str:str) -> str:
+        """Gets the URL id from the url and thread index information
+
+        Args:
+            url_str (str): thread streig with "th_index url"
+
+        Returns:
+            str: url id
+        """
+        url_splitted=url_str.split(" ")
+        url_id=None
+        if len(url_splitted)==2:
+            thread_index=url_splitted[0]
+            the_url=url_splitted[1]
+            for thread_tuple in self.threads_event_list:
+                map_list=thread_tuple[3]
+                thread_index_url_id_list=self._identify_thread_index_url_id(map_list)
+                for th_index,th_url_id in thread_index_url_id_list:
+                    # print("&&&&&&&&&&&&&&&&&&& === ",th_index,th_url_id)
+                    if th_index == thread_index and self.url_struct[th_url_id]["URL"] == the_url:
+                        url_id=th_url_id
+                        break
+                if url_id:
+                    break
+        return url_id
+
 
     def pytubefix_download_end(self, url: str, title: str):
         """Receives Signal form Pytube fix when a Download is ended
@@ -271,10 +351,33 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             url (str): url of download
             title (str): title of the download
         """
+        print("========== >>>>>> Main got Signal End <<<<<<< ==========  \n"*5)
+        print("url:",url,"\ntitle:",title)
         if url == self.ongoing_download_url:
             self.ongoing_download_url = None
             self.ongoing_download_title = None
         log.info("Download finished for %s", title)
+
+        url_id=self._identify_urlid_from_url_str(url)
+        print("url_id:", url_id, " url:",url,"\ntitle:",title)
+        
+        # add widget to twf
+        it_w_dict=self.twf.itemwidget_dict.copy()
+        track_list = it_w_dict["track_list"]
+        widget_list = it_w_dict["widget_list"]
+        #remove tracked objects
+        for nnn,track in enumerate(track_list):
+            if self._is_same_list(track,[url_id, "DL Status"]):
+                track_list.pop(nnn)
+                widget_list.pop(nnn)
+
+        it_w_dict.update({"track_list":track_list})
+        it_w_dict.update({"widget_list":widget_list})
+        self.twf.set_items_widgets(it_w_dict)
+
+        self.twf.data_struct = self.url_struct
+        self.twf.set_show_dict()
+        self.twf.refresh_tablewidget(self.twf.show_dict, self.twf.modelobj, self.twf.tablewidgetobj)
 
     def pytubefix_log(self, log_msg: str):
         """
@@ -373,7 +476,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         menu_item01.setEnabled(False)
         menu_item10.setEnabled(True)
         menu_item11.setEnabled(True)
-        #menu_item20.setEnabled(True)
+        # menu_item20.setEnabled(True)
         menu_item21.setEnabled(True)
         menu_item40.setEnabled(True)
         menu_item60.setEnabled(True)
@@ -405,6 +508,8 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
 
             menu_item21.setEnabled(True)
             menu_item21.triggered.connect(lambda: self._download_selected_items(id_key_list))
+            # Download all
+            menu_item60.triggered.connect(lambda: self._download_selected_items(self.get_id_list()))
 
         # print("Position:",apos)
         # parentPosition = self.tableWidget_url.mapToGlobal(QtCore.QPoint(0, 0))
@@ -412,37 +517,54 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         # position is already global
         self.item_menu.move(apos)
         self.item_menu.show()
-    
+
     def _download_selected_items(self, id_key_list: list):
         """
         Downloads the items in the list, starts a thread for each download
         """
         # prepare dict
-        if len(self.threads_event_list)<=5:
-            file_properties_dict={}
-            map_list=[]
+        if len(self.threads_event_list) <= 5:
+            file_properties_dict = {}
+            map_list = []
             for index, url_id in enumerate(id_key_list):
-                file_properties_dict.update({str(index):self.url_struct_options[url_id]})
-                map_list.append((url_id,file_properties_dict))
+                file_properties_dict.update({str(index): self.url_struct_options[url_id]})
+                map_list.append((url_id, file_properties_dict))
             self.threads_mapping_dict.update({})
             kill_ev = threading.Event()
-            kill_ev.clear() 
+            kill_ev.clear()
             cycle_time = 0.1
             local_st = class_signal_tracker.SignalTracker()
-            q_dl_stream = thread_download_pytubefix.ThreadQueueDownloadStream(file_properties_dict, cycle_time, kill_ev, local_st)
+            q_dl_stream = thread_download_pytubefix.ThreadQueueDownloadStream(
+                file_properties_dict, cycle_time, kill_ev, local_st
+            )
             local_st.signal_th2m_to_log[str].connect(self.pytubefix_log)
             local_st.signal_th2m_download_start[str, str].connect(self.pytubefix_download_start)
             local_st.signal_th2m_download_end[str, str].connect(self.pytubefix_download_end)
             local_st.signal_th2m_on_progress[str, float].connect(self.pytubefix_download_progress)
             local_st.signal_th2m_thread_end[bool].connect(self._thread_exit_event)
-            self.threads_event_list.append((kill_ev,local_st,q_dl_stream))
+            self.threads_event_list.append((kill_ev, local_st, q_dl_stream, map_list))
             q_dl_stream.start()
-            log.info("Thread started with %s",id_key_list)
-            print(q_dl_stream.is_alive())
+            log.info("Thread started with %s", id_key_list)
+            # Todo: Disable editing the objects in twf while downloading!!!!!!!!!!!!!!!!!!!
+            # hind Qt.EditRole
+            # in c item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+
+            # self.twf.get_track_of_item_in_table() 
+            # for key in id_key_list:
+            #     row_dict=self.url_struct[key]
+            #     for col_key in row_dict:
+            #         itm, _, _, _=self.twf.get_item_from_track([key,col_key])
+            #         if isinstance(itm,QtWidgets.QTableWidgetItem):
+            #             print("############### flags-->",int(itm.flags()))
+            #             #itm.setFlags(itm.flags() & ~QtCore.Qt.ItemIsEditable)
+           
+            #self.twf.tablewidgetobj.verticalHeader().setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+            #self.twf.tablewidgetobj.verticalHeader().setEditTriggers(QtWidgets.QAbstractItemView.setEditTriggers())
+            # print(q_dl_stream.is_alive())
         else:
             log.error("There are already 5 downloading threads simultaneously!")
 
-    def _thread_exit_event(self,fine_exit:bool):
+    def _thread_exit_event(self, fine_exit: bool):
         """Thread ended and exit signal
 
         Args:
@@ -451,17 +573,85 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         log.info("========== >>>>>> Thread Finished <<<<<<< ==========  ")
         if fine_exit:
             log.info("Tread Finalized correctly")
-        th_ev_list=self.threads_event_list.copy()
+        th_ev_list = self.threads_event_list.copy()
         log.info("Number of running threads: %s", len(self.threads_event_list))
         time.sleep(1)
-        for list_index,threads in enumerate(th_ev_list):
-            q_dl_stream=threads[2]
+        for list_index, threads in enumerate(th_ev_list):
+            q_dl_stream = threads[2]
             # print("Is thread alive? ->",list_index, q_dl_stream.is_alive())
             if not q_dl_stream.is_alive():
                 # print("Is thread alive? ->",list_index, q_dl_stream.is_alive())
+                map_list= threads[3]
+                self._handle_finished_dowloads_table(map_list)
                 q_dl_stream.join()
                 self.threads_event_list.pop(list_index)
         log.info("Number of running threads: %s", len(self.threads_event_list))
+    
+    def _handle_finished_dowloads_table(self,map_list:list[tuple]):
+        """Removes from table 1 and sets to table 2 finished downloads tracking 
+            the thread and the url_id in list
+
+        Args:
+            map_list (list[tuple]): list of downloaded contents in the thread 
+                        each tuple contains (url_id, file_properties_dict)
+                        the file_properties_dict contains the same information as:
+                        self.url_struct_options[url_id], but the key is the thread index.
+        """
+        print(map_list)
+        thread_index_url_id_list=self._identify_thread_index_url_id(map_list)
+        url_id_list=[]
+        for pair in thread_index_url_id_list:
+            url_id_list.append(pair[1])
+            print("url_id->",pair[1],"thrindex->",pair[0])
+        self._add_item_to_url_struct_results(url_id_list)
+        self._remove_url_items(url_id_list,False)
+    
+    def _add_item_to_url_struct_results(self, url_id_list: list):
+        """
+        Adds item to url_struct_results dictionary and to twf2
+        """
+        for url_id in url_id_list:
+            results_dict={}
+            for item, item_value in self.url_struct[url_id].items():
+                if item not in ["DL Enable"]:
+                    results_dict.update({item: item_value})           
+            self.url_struct_results.update({url_id: results_dict})
+            self.url_id_counter = self.url_id_counter + 1
+        
+        self.twf2.data_struct = self.url_struct_results
+        self.twf2.set_show_dict()
+        self.twf2.refresh_tablewidget(self.twf2.show_dict, self.twf2.modelobj, self.twf2.tablewidgetobj)
+
+
+    def _identify_thread_index_url_id(self,map_list:list[tuple]) ->list[tuple]:
+        """Gets the URLid and Thread index pairs
+
+        Args:
+            map_list (list[tuple]): list of downloaded contents in the thread 
+                        each tuple contains (url_id, file_properties_dict)
+                        the file_properties_dict contains the same information as:
+                        self.url_struct_options[url_id], but the key is the thread index.
+
+        Returns:
+            list[tuple]: (thread_index,url_id)
+        """
+        thread_index_url_id_list = []
+        for th_map in map_list:
+            url_id = th_map[0]
+            #thread_keys = self.twf.get_dict_key_list(th_map[1])
+            thread_index = None
+            for key, item_value in th_map[1].items():
+                same_values = True
+                for item_key in item_value:
+                    if str(th_map[1][key][item_key])!=str(self.url_struct_options[url_id][item_key]):
+                        same_values = False
+                        break
+                if same_values:
+                    thread_index = key
+                    break   
+            thread_index_url_id_list.append((thread_index,url_id)) 
+        return thread_index_url_id_list
+
 
     def _select_special_download_path(self, id_key_list: list):
         """Sets a different download path than the Default path"""
@@ -635,6 +825,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                 {
                     new_id: {
                         "Index": self.url_id_counter,
+                        "DL Status": "",
                         "Title": vid_title,
                         "URL": vid_url,
                         "DL Enable": True,
@@ -811,13 +1002,13 @@ class MyWindow(QtWidgets.QMainWindow):
             #     # log.error(e)
             #     pass
             # kill threads
-            # threads_event_list is list of tuples : (kill_ev,local_st,q_dl_stream)
-            print("On Close -> number of threads: ",len(ui.threads_event_list))
+            # threads_event_list is list of tuples : (kill_ev, local_st, q_dl_stream, map_list)
+            print("On Close -> number of threads: ", len(ui.threads_event_list))
             for threads in ui.threads_event_list:
                 try:
-                    kill_ev=threads[0]
+                    kill_ev = threads[0]
                     kill_ev.set()
-                    q_dl_stream=threads[2]
+                    q_dl_stream = threads[2]
                     q_dl_stream.join()
                 except:
                     pass

@@ -387,7 +387,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         self, rolevalue_dict: dict = {"track_list": [], "role_list": [], "value_list": []}
     ) -> None:
         """Sets dictionary for role values of each item
-
+            see: https://doc.qt.io/archives/qt-4.8/qt.html#ItemDataRole-enum
         Args:
             rolevalue_dict (_type_, optional): Lists must be of the same lengths. Dict must contain:
             "track_list": [TrackListItem1, ... , TrackListItemN].
