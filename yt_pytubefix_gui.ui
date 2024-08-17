@@ -138,6 +138,9 @@
      <string>File</string>
     </property>
     <addaction name="actionSet_Path"/>
+    <addaction name="separator"/>
+    <addaction name="actionOpen_URL_list"/>
+    <addaction name="actionSave_URL_list"/>
    </widget>
    <widget class="QMenu" name="menuAbout">
     <property name="title">
@@ -157,6 +160,16 @@
   <action name="actionSet_Path">
    <property name="text">
     <string>Set Path</string>
+   </property>
+  </action>
+  <action name="actionOpen_URL_list">
+   <property name="text">
+    <string>Open URL list</string>
+   </property>
+  </action>
+  <action name="actionSave_URL_list">
+   <property name="text">
+    <string>Save URL list</string>
    </property>
   </action>
  </widget>

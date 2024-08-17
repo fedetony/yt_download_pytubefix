@@ -24,6 +24,7 @@ import threading
 import time
 
 import yaml
+import json
 import requests
 
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -112,7 +113,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             self.download_path = self.general_config["Last_Path_for_Download"][0]
             if not os.path.exists(self.download_path):
                 self.download_path = self.app_path
-        except (TypeError, KeyError):
+        except (TypeError, KeyError, IndexError):
             self.download_path = self.app_path
         self.url_struct = {}
         self.url_struct_mask = {
@@ -311,9 +312,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         it_w_dict.update({"widget_list":widget_list})
         self.twf.set_items_widgets(it_w_dict)
 
-        self.twf.data_struct = self.url_struct
-        self.twf.set_show_dict()
-        self.twf.refresh_tablewidget(self.twf.show_dict, self.twf.modelobj, self.twf.tablewidgetobj)
+        self.main_refresh_tablewidget()
 
         
 
@@ -375,9 +374,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         it_w_dict.update({"widget_list":widget_list})
         self.twf.set_items_widgets(it_w_dict)
 
-        self.twf.data_struct = self.url_struct
-        self.twf.set_show_dict()
-        self.twf.refresh_tablewidget(self.twf.show_dict, self.twf.modelobj, self.twf.tablewidgetobj)
+        self.main_refresh_tablewidget()
 
     def pytubefix_log(self, log_msg: str):
         """
@@ -437,6 +434,8 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         """
         self.lineEdit_url.textChanged.connect(self._lineedit_url_changed)
         self.actionAbout.triggered.connect(self.show_aboutbox)
+        self.actionOpen_URL_list.triggered.connect(self.open_url_list)
+        self.actionSave_URL_list.triggered.connect(self.save_url_list)
         self.actionSet_Path.triggered.connect(self.set_download_path)
         self.pushButton_url.pressed.connect(self._pushbutton_url_pressed)
 
@@ -670,9 +669,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                 # mask returns it to ""
                 # self.twf.set_value_and_trigger_data_change(track,str(download_path),str(str),"")
         # Refresh and update
-        self.twf.data_struct = self.url_struct
-        self.twf.set_show_dict()
-        self.twf.refresh_tablewidget(self.twf.show_dict, self.twf.modelobj, self.twf.tablewidgetobj)
+        self.main_refresh_tablewidget()
         self._update_shared_struct_options()
         # print(self.url_struct_options)
 
@@ -713,9 +710,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         for a_key in id_key_list:
             self.url_struct = self.get_dict_wo_key(self.url_struct, a_key)
             self.url_struct_options = self.get_dict_wo_key(self.url_struct_options, a_key)
-        self.twf.data_struct = self.url_struct
-        self.twf.set_show_dict()
-        self.twf.refresh_tablewidget(self.twf.show_dict, self.twf.modelobj, self.twf.tablewidgetobj)
+        self.main_refresh_tablewidget()
 
     def get_dict_wo_key(self, dictionary: dict, key) -> dict:
         """Returns a **shallow** copy of the dictionary without a key."""
@@ -768,14 +763,33 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         On pressed url button add to list
         """
         # fast regex check
-        is_valid, _ = self.ptf.is_yt_valid_url(self.lineEdit_url.text())
-        # slow html check
+        the_link=self.lineEdit_url.text()
+        the_link=the_link.strip()
+        link_list=self.twf.check_restrictions.string_to_list(the_link)
+        if link_list:
+            for a_link in link_list:
+                if self._check_url_is_valid(a_link):
+                    # passed checks
+                    self.add_item_to_url_struct(a_link)
+        else:
+            if self._check_url_is_valid(the_link):
+                # passed checks
+                self.add_item_to_url_struct(the_link)
+
+    def _check_url_is_valid(self,url:str )->bool:
+        """Is a pytubefix valid url, checks regex and exists
+
+        Args:
+            url (str): url to check
+
+        Returns:
+            bool: is valid
+        """
+        is_valid, _ = self.ptf.is_yt_valid_url(url)
         if not is_valid:
-            return
-        urlexists = self.does_url_exist(self.lineEdit_url.text())
-        if urlexists:
-            # passed checks
-            self.add_item_to_url_struct(self.lineEdit_url.text())
+            return False
+        # slow html check
+        return  self.does_url_exist(url)
 
     def get_id_list(self):
         """
@@ -843,9 +857,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             self.url_id_counter = self.url_id_counter + 1
         # This sets options dict
         self._update_shared_struct_options()
-        self.twf.data_struct = self.url_struct
-        self.twf.set_show_dict()
-        self.twf.refresh_tablewidget(self.twf.show_dict, self.twf.modelobj, self.twf.tablewidgetobj)
+        self.main_refresh_tablewidget()
 
     def _get_request_exceptions_tuple(self) -> tuple:
         """Get exceptions from resource package
@@ -878,6 +890,115 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         if response.status_code == 200:
             return True
         return False
+
+    def open_url_list(self):
+        """Opens list of uls
+        """
+        self.open_url_list_from_json(None)
+
+    def open_url_list_from_json(self, a_filename:str = None):  
+        """Opens a json file and appends it to struct
+
+        Args:
+            a_filename (str, optional): input the filename or open dialog if None. Defaults to None.
+        """
+        if not a_filename:      
+            a_filename = self.a_dialog.open_file_dialog(8)
+        if a_filename is not None:
+            try:       
+                if not os.path.exists(a_filename):
+                    raise FileNotFoundError         
+                with open(a_filename, encoding='utf-8') as fff:
+                    data = fff.read()                           
+                # reconstructing the data as a dictionary
+                fff.close()
+                js_data = json.loads(data)   
+                self._add_dictionaries_to_struct(js_data)
+                
+                log.info("Loaded File: %s",a_filename)
+            except (PermissionError,FileExistsError,FileNotFoundError) as e:
+                log.error('Json File: %s can not be opened',a_filename)
+                log.error(e)
+    
+    def _add_dictionaries_to_struct(self,inc_struct):    
+        """Adds to strcut the input dictionaries"""    
+        newstruct={}
+        a_struct=self.recursive_copy_dict(inc_struct)
+        try:
+            for key in a_struct:
+                url_id=self.get_unique_id("URL" + str(self.url_id_counter))
+                results_dict={}
+                is_valid, _ = self.ptf.is_yt_valid_url(a_struct[key]["URL"])
+                if is_valid:
+                    for item, item_value in a_struct[key].items(): 
+                        results_dict.update({item: item_value})          
+                    self.url_struct.update({url_id: results_dict})
+                    self.url_id_counter = self.url_id_counter + 1 
+            
+            self._update_shared_struct_options()
+            self.main_refresh_tablewidget()
+
+        except (AttributeError,KeyError,IndexError):
+            log.error("Dictionary has incorrect format!")
+        return newstruct
+
+    def main_refresh_tablewidget(self):
+        """Refresh the tablewidget
+        """
+        # refresh
+        self.twf.data_struct = self.url_struct
+        self.twf.set_show_dict()
+        self.twf.refresh_tablewidget(self.twf.show_dict, self.twf.modelobj, self.twf.tablewidgetobj)
+
+
+    def recursive_copy_dict(self,indict:any) -> dict:
+        """Makes a copy of the dictionary recursively
+
+        Args:
+            indict (any): input dictionary
+
+        Returns:
+            dict: output dictionary
+        """
+        outdict={}
+        if isinstance(indict,dict):
+            keylist=self.twf.get_dict_key_list(indict)
+            for iii in keylist:
+                if isinstance(indict[iii],dict):
+                    outdict.update({iii:self.recursive_copy_dict(indict[iii])})                
+                else:
+                    outdict.update({iii:indict[iii]})
+        else:    
+            return indict
+        return outdict
+
+    def save_url_list(self):
+        """Saves to json the list of urls
+        """
+        if len(self.url_struct)>0:
+            self.a_dialog.set_default_dir(self.download_path)
+            filename = self.a_dialog.save_file_dialog(8)
+            if filename:
+                fn=self.a_dialog.extract_filename(filename,False)+'.json'
+                path=self.a_dialog.extract_path(filename)
+                filename=os.path.join(path,fn)          
+                try:   
+                    # python dictionary with key value pairs
+                    dict = self.url_struct
+                    # create json object from dictionary
+                    js = json.dumps(dict)
+                    # open file for writing, "w" 
+                    fff = open(filename,"w", encoding='utf-8')
+                    # write json object to file
+                    fff.write(js)
+                    # close file
+                    fff.close()
+                    log.info("Saved File:"+filename)
+                    
+                except (PermissionError,FileExistsError,FileNotFoundError) as e:
+                    log.error("Json File :"+filename+ ' was not saved')
+                    log.error(e)
+
 
     def set_download_path(self):
         """

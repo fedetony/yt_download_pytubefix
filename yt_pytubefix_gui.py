@@ -98,7 +98,14 @@ class Ui_MainWindow(object):
         self.actionAbout.setObjectName("actionAbout")
         self.actionSet_Path = QtWidgets.QAction(MainWindow)
         self.actionSet_Path.setObjectName("actionSet_Path")
+        self.actionOpen_URL_list = QtWidgets.QAction(MainWindow)
+        self.actionOpen_URL_list.setObjectName("actionOpen_URL_list")
+        self.actionSave_URL_list = QtWidgets.QAction(MainWindow)
+        self.actionSave_URL_list.setObjectName("actionSave_URL_list")
         self.menuFile.addAction(self.actionSet_Path)
+        self.menuFile.addSeparator()
+        self.menuFile.addAction(self.actionOpen_URL_list)
+        self.menuFile.addAction(self.actionSave_URL_list)
         self.menuAbout.addAction(self.actionAbout)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuAbout.menuAction())
@@ -122,6 +129,8 @@ class Ui_MainWindow(object):
         self.menuAbout.setTitle(_translate("MainWindow", "About"))
         self.actionAbout.setText(_translate("MainWindow", "About"))
         self.actionSet_Path.setText(_translate("MainWindow", "Set Path"))
+        self.actionOpen_URL_list.setText(_translate("MainWindow", "Open URL list"))
+        self.actionSave_URL_list.setText(_translate("MainWindow", "Save URL list"))
 
 
 if __name__ == "__main__":

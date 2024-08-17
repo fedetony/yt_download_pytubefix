@@ -486,6 +486,18 @@ class CheckRestrictions:
                 isok = False
         return isok
 
+    def string_to_list(self, astr: str) -> list:
+        """Set string input to a list if the string resmbles a list with
+        format [value1, Value2,.. , ValueN]
+
+        Args:
+            astr (str): String input
+
+        Returns:
+            list: String as list or None
+        """
+        return self._str_to_list(astr)
+
     def _str_to_list(self, astr: str) -> list:
         """Set string input to a list if the string resmbles a list with
         format [value1, Value2,.. , ValueN]
