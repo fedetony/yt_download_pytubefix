@@ -6,10 +6,13 @@ Creation Date: 05.12.2022
 import os
 import sys
 import re
+import subprocess
 
 # from PyQt5 import QtCore
 from PyQt5.QtWidgets import QFileDialog, QWidget, QMessageBox
 from PyQt5.QtWidgets import QDialog, QStackedWidget, QListView, QLineEdit
+
+FILEBROWSER_PATH = os.path.join(os.getenv("WINDIR"), "explorer.exe")
 
 
 class Dialogs(QWidget):
@@ -96,6 +99,20 @@ class Dialogs(QWidget):
         if re.match(pattern, filter_string):
             return True
         return False
+
+    def explore(self, path: str):
+        """Open windows explorer on path
+
+        Args:
+            path (str): path to open
+        """
+        if os.path.exists(path):
+            # explorer would choke on forward slashes
+            path = os.path.normpath(path)
+            if os.path.isdir(path):
+                subprocess.run([FILEBROWSER_PATH, path], check=True)
+            elif os.path.isfile(path):
+                subprocess.run([FILEBROWSER_PATH, "/select,", path], check=True)
 
     def set_default_dir(self, adir: str):
         """Sets the dialogs default directory when opened
