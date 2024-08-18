@@ -96,6 +96,17 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.icon_main_pixmap = None
         self.icon_main = None
         self.icon_main = None
+        self.icon_plus = None
+        self.icon_explorer = None
+        self.icon_open_file = None
+        self.icon_save_file = None
+        self.icon_info = None
+        self.icon_toggle = None
+        self.icon_download_all = None
+        self.icon_download_selected = None
+        self.icon_download_folder = None
+        self.icon_clear = None
+        self.icon_minus = None
         self.twf = None
         self.twf2 = None
         self.ptf = None
@@ -169,14 +180,9 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         # initial conditions
         self.start_up()
         # ------------- Mainwindow
-        # set the icon
-        path_to_file = self.app_path + os.sep + "img" + os.sep + "main_icon.png"
-        file_exists = os.path.exists(path_to_file)
-        self.icon_main_pixmap = None
-        self.icon_main = None
-        if file_exists:
-            self.icon_main_pixmap = QtGui.QPixmap(path_to_file)
-            self.icon_main = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+        # set the icons
+        self._set_icons()
+        if self.icon_main:
             amain_window.setWindowIcon(self.icon_main)
 
         # set the title
@@ -221,6 +227,64 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self._set_path_labels()
         self.a_dialog.set_default_dir(self.app_path)
         self._connect_actions()
+
+    def _set_icons(self):
+        """Sets the icons if they are found"""
+        image_path = self.app_path + os.sep + "img" + os.sep
+        path_to_file = image_path + "main_icon.png"
+        if os.path.exists(path_to_file):
+            self.icon_main_pixmap = QtGui.QPixmap(path_to_file)
+            self.icon_main = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+
+        path_to_file = image_path + "plus_icon.png"
+        if os.path.exists(path_to_file):
+            self.icon_plus = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+            self.pushButton_url.setIcon(self.icon_plus)
+
+        path_to_file = image_path + "explorer_file_icon.png"
+        if os.path.exists(path_to_file):
+            self.icon_explorer = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+            self.pushButton_2.setIcon(self.icon_explorer)
+
+        path_to_file = image_path + "open_file_icon.png"
+        if os.path.exists(path_to_file):
+            self.icon_open_file = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+            self.actionOpen_URL_list.setIcon(self.icon_open_file)
+
+        path_to_file = image_path + "save_file_icon.png"
+        if os.path.exists(path_to_file):
+            self.icon_save_file = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+            self.actionSave_URL_list.setIcon(self.icon_save_file)
+
+        path_to_file = image_path + "info_icon.png"
+        if os.path.exists(path_to_file):
+            self.icon_info = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+            self.actionAbout.setIcon(self.icon_info)
+
+        path_to_file = image_path + "download_folder_icon.png"
+        if os.path.exists(path_to_file):
+            self.icon_download_folder = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+            self.actionSet_Path.setIcon(self.icon_download_folder)
+
+        path_to_file = image_path + "minus_icon.png"
+        if os.path.exists(path_to_file):
+            self.icon_minus = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+
+        path_to_file = image_path + "download_all_icon.png"
+        if os.path.exists(path_to_file):
+            self.icon_download_all = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+
+        path_to_file = image_path + "download_selected_icon.png"
+        if os.path.exists(path_to_file):
+            self.icon_download_selected = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+
+        path_to_file = image_path + "clear_icon.png"
+        if os.path.exists(path_to_file):
+            self.icon_clear = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+
+        path_to_file = image_path + "toggle_icon.png"
+        if os.path.exists(path_to_file):
+            self.icon_toggle = QtGui.QIcon(QtGui.QPixmap(path_to_file))
 
     def _table_widget_data_changed(self, track: list[str], val: any, valtype: str, subtype: str):
         """Sets the changed information in table widget by user into the Structure
@@ -462,18 +526,25 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             return
         self.item_menu = QtWidgets.QMenu()
         menu_item01 = self.item_menu.addAction(f"Toggle {track}")
+        menu_item01.setIcon(self.icon_toggle)
         self.item_menu.addSeparator()
         menu_item10 = self.item_menu.addAction(f"URL info {track[0]}")
+        menu_item10.setIcon(self.icon_info)
         menu_item11 = self.item_menu.addAction(f"Set Download Path {id_key_list}")
+        menu_item11.setIcon(self.icon_download_folder)
         self.item_menu.addSeparator()
         # menu_item20 = self.item_menu.addAction(f"Download {track[0]}")
         menu_item21 = self.item_menu.addAction(f"Download {id_key_list}")
+        menu_item21.setIcon(self.icon_download_selected)
         self.item_menu.addSeparator()
         menu_item40 = self.item_menu.addAction(f"Remove {id_key_list}")
+        menu_item40.setIcon(self.icon_minus)
         self.item_menu.addSeparator()
         menu_item60 = self.item_menu.addAction("Download All")
+        menu_item60.setIcon(self.icon_download_all)
         self.item_menu.addSeparator()
         menu_item61 = self.item_menu.addAction("Remove All")
+        menu_item61.setIcon(self.icon_clear)
 
         # default enabled in menu
         menu_item01.setEnabled(False)
@@ -521,12 +592,33 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.item_menu.move(apos)
         self.item_menu.show()
 
+    def _get_download_enabled_list(self) -> list:
+        """Gets the list of DL Enable items
+
+        Returns:
+            list: list of ids Download enabled
+        """
+        dl_enabled_list = []
+        for an_id in self.get_id_list():
+            if self.url_struct[an_id]["DL Enable"]:
+                dl_enabled_list.append(an_id)
+        return dl_enabled_list
+
     def _download_selected_items(self, id_key_list: list):
         """
         Downloads the items in the list, starts a thread for each download
         """
+        dl_enabled_list = self._get_download_enabled_list()
+        id_list = []
+        for key in id_key_list:
+            if key in dl_enabled_list:
+                id_list.append(key)
+        if len(id_key_list) != len(id_list):
+            log.info("Some URLs are not Download enabled, downloading only %s", id_list)
+        id_key_list = id_list  # Download only enabled
+
         # prepare dict
-        if len(self.threads_event_list) <= 5:
+        if len(self.threads_event_list) <= 5 and len(id_key_list) > 0:
             file_properties_dict = {}
             map_list = []
             for index, url_id in enumerate(id_key_list):
@@ -801,14 +893,13 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             return True
         return False
 
-
     def add_item_to_url_struct(self, url: str):
         """
         Adds item to list
         """
         vid_list, vid_list_url = self.ptf.get_any_yt_videos_list(url)
         for vid_title, vid_url in zip(vid_list, vid_list_url):
-            new_id = self.a_ufun.get_unique_id("URL0",self.get_id_list(),"URL")
+            new_id = self.a_ufun.get_unique_id("URL0", self.get_id_list(), "URL")
             self.url_struct.update(
                 {
                     new_id: {
@@ -899,7 +990,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         a_struct = self.a_ufun.recursive_copy_dict(inc_struct)
         try:
             for key in a_struct:
-                url_id = self.a_ufun.get_unique_id("URL0",self.get_id_list(),"URL")
+                url_id = self.a_ufun.get_unique_id("URL0", self.get_id_list(), "URL")
                 results_dict = {}
                 is_valid, _ = self.ptf.is_yt_valid_url(a_struct[key]["URL"])
                 if is_valid:
