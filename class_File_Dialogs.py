@@ -109,10 +109,13 @@ class Dialogs(QWidget):
         if os.path.exists(path):
             # explorer would choke on forward slashes
             path = os.path.normpath(path)
-            if os.path.isdir(path):
-                subprocess.run([FILEBROWSER_PATH, path], check=True)
-            elif os.path.isfile(path):
-                subprocess.run([FILEBROWSER_PATH, "/select,", path], check=True)
+            try:
+                if os.path.isdir(path):
+                    subprocess.run([FILEBROWSER_PATH, path], check=True)
+                elif os.path.isfile(path):
+                    subprocess.run([FILEBROWSER_PATH, "/select,", path], check=True)
+            except (subprocess.CalledProcessError,subprocess.SubprocessError):
+                pass
 
     def set_default_dir(self, adir: str):
         """Sets the dialogs default directory when opened

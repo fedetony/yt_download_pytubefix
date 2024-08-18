@@ -89,7 +89,7 @@ class UsefulFunctions:
         """
         outdict = {}
         if isinstance(indict, dict):
-            keylist = self.twf.get_dict_key_list(indict)
+            keylist = self.get_dict_key_list(indict)
             for iii in keylist:
                 if isinstance(indict[iii], dict):
                     outdict.update({iii: self.recursive_copy_dict(indict[iii])})

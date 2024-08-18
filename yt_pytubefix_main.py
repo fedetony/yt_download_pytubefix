@@ -9,6 +9,7 @@ __author__ = "FG"
 __version__ = "1.0.0 Beta"
 __creationdate__ = "04.08.2024"
 __gitaccount__ = "<a href=\"https://github.com/fedetony\">' Github for fedetony'</a>"
+__pytubefix__ = "<a href=\"https://github.com/JuanBindez/pytubefix\">' Github for pytubefix'</a>"
 
 # Form implementation generated automaticaly from reading ui file 'yt_pytubefix_gui.ui'
 # Created by: PyQt5 UI code generator 5.15.4
@@ -273,6 +274,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         path_to_file = image_path + "download_all_icon.png"
         if os.path.exists(path_to_file):
             self.icon_download_all = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+            self.pushButton_4.setIcon(self.icon_download_all)
 
         path_to_file = image_path + "download_selected_icon.png"
         if os.path.exists(path_to_file):
@@ -281,10 +283,12 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         path_to_file = image_path + "clear_icon.png"
         if os.path.exists(path_to_file):
             self.icon_clear = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+            self.pushButton_5.setIcon(self.icon_clear)
 
         path_to_file = image_path + "toggle_icon.png"
         if os.path.exists(path_to_file):
             self.icon_toggle = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+            self.pushButton_3.setIcon(self.icon_toggle)
 
     def _table_widget_data_changed(self, track: list[str], val: any, valtype: str, subtype: str):
         """Sets the changed information in table widget by user into the Structure
@@ -379,7 +383,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         it_w_dict.update({"widget_list": widget_list})
         self.twf.set_items_widgets(it_w_dict)
 
-        self.main_refresh_tablewidget()
+        self._main_refresh_tablewidget()
 
     def _identify_urlid_from_url_str(self, url_str: str) -> str:
         """Gets the URL id from the url and thread index information
@@ -436,7 +440,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         it_w_dict.update({"widget_list": widget_list})
         self.twf.set_items_widgets(it_w_dict)
 
-        self.main_refresh_tablewidget()
+        self._main_refresh_tablewidget()
 
     def _pytubefix_log(self, log_msg: str):
         """
@@ -501,14 +505,43 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.actionSet_Path.triggered.connect(self.set_download_path)
         self.pushButton_url.pressed.connect(self._pushbutton_url_pressed)
         self.pushButton_2.pressed.connect(self._open_windows_explorer)
+        self.pushButton_5.pressed.connect(self._clear_table_widget_2)
+        self.pushButton_4.pressed.connect(lambda: self._download_selected_items(self.get_id_list()))
+        self.pushButton_3.pressed.connect(self._set_dl_enable)
 
         # right click menu
 
         self.tableWidget_url.customContextMenuRequested.connect(self._table_item_right_clicked)
 
+    def _set_dl_enable(self):
+        """Sets all enabled/disabled 'DL Enable' """
+        all_id_list = self.get_id_list()
+        if len(all_id_list) == 0:
+            return
+        dl_en_list = self._get_download_enabled_list()
+        if len(all_id_list) == len(dl_en_list) or len(dl_en_list) == 0: # all true or all false
+            for an_id in all_id_list:
+                b_val = bool(self.url_struct[an_id]["DL Enable"])
+                self.url_struct[an_id]["DL Enable"] = not b_val
+        elif len(all_id_list) > len(dl_en_list) and len(dl_en_list) != 0:
+            for an_id in all_id_list:
+                if an_id not in dl_en_list:
+                    b_val = bool(self.url_struct[an_id]["DL Enable"])
+                    self.url_struct[an_id]["DL Enable"] = not b_val
+        
+        self._main_refresh_tablewidget()
+
+
+
     def _open_windows_explorer(self):
         """Opens windows explorer in download path"""
         self.a_dialog.explore(self.download_path)
+    
+    def _clear_table_widget_2(self):
+        """Removes items from the twf2 table
+        """
+        self.url_struct_results={}
+        self._main_refresh_tablewidget2()
 
     # Right click Menu
     def _table_item_right_clicked(self, track: list, apos: QtCore.QPoint):
@@ -655,7 +688,10 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             # self.twf.tablewidgetobj.verticalHeader().setEditTriggers(QtWidgets.QAbstractItemView.setEditTriggers())
             # print(q_dl_stream.is_alive())
         else:
-            log.error("There are already 5 downloading threads simultaneously!")
+            if len(self.threads_event_list) >= 5: 
+                log.warning("There are already 5 downloading threads simultaneously!")
+            else:
+                log.warning("There is nothing to Download!")
 
     def _thread_exit_event(self, fine_exit: bool):
         """Thread ended and exit signal
@@ -710,7 +746,10 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                     results_dict.update({item: item_value})
             self.url_struct_results.update({url_id: results_dict})
             self.url_id_counter = self.url_id_counter + 1
-
+        self._main_refresh_tablewidget2()
+        
+    def _main_refresh_tablewidget2(self):
+        """Refresh the tablewidget twf2 """
         self.twf2.data_struct = self.url_struct_results
         self.twf2.set_show_dict()
         self.twf2.refresh_tablewidget(self.twf2.show_dict, self.twf2.modelobj, self.twf2.tablewidgetobj)
@@ -761,7 +800,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                 # mask returns it to ""
                 # self.twf.set_value_and_trigger_data_change(track,str(download_path),str(str),"")
         # Refresh and update
-        self.main_refresh_tablewidget()
+        self._main_refresh_tablewidget()
         self._update_shared_struct_options()
         # print(self.url_struct_options)
 
@@ -802,7 +841,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         for a_key in id_key_list:
             self.url_struct = self.a_ufun.get_dict_wo_key(self.url_struct, a_key)
             self.url_struct_options = self.a_ufun.get_dict_wo_key(self.url_struct_options, a_key)
-        self.main_refresh_tablewidget()
+        self._main_refresh_tablewidget()
 
     def _toggle_bool_item(self, track: list):
         """Toggles the value of a bool item in the Table
@@ -816,9 +855,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             log.debug("Toggle Triggered %s", track)
             value_of_rc = self.twf.check_restrictions.set_type_to_value(value_of_rc, str(bool), "")
             self.twf.set_value_and_trigger_data_change(track, not value_of_rc, "")
-
-            # self.twf.set_tracked_value_to_dict(track,not value_of_rc,self.twf.show_dict,"",True)
-            # self.twf.refresh_tablewidget(self.twf.show_dict, self.twf.modelobj, self.twf.tablewidgetobj)
+        self._main_refresh_tablewidget()
 
     def _get_id_key_list_from_selection(self) -> tuple[list, list]:
         """Gets a list of keys of the items selected
@@ -920,7 +957,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             self.url_id_counter = self.url_id_counter + 1
         # This sets options dict
         self._update_shared_struct_options()
-        self.main_refresh_tablewidget()
+        self._main_refresh_tablewidget()
 
     def _get_request_exceptions_tuple(self) -> tuple:
         """Get exceptions from resource package
@@ -998,13 +1035,13 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                     self.url_id_counter = self.url_id_counter + 1
 
             self._update_shared_struct_options()
-            self.main_refresh_tablewidget()
+            self._main_refresh_tablewidget()
 
         except (AttributeError, KeyError, IndexError):
             log.error("Dictionary has incorrect format!")
         return newstruct
 
-    def main_refresh_tablewidget(self):
+    def _main_refresh_tablewidget(self):
         """Refresh the tablewidget"""
         # refresh
         self.twf.data_struct = self.url_struct
@@ -1089,10 +1126,14 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         """
         Set texts and labels in Gui
         """
+        self.lineEdit_url.setToolTip("Type YT url,channel,playlist or comma separated list in format '[URL1, ..., URLN]'")
         self.groupBox.setTitle("List of URLs:")
         self.groupBox_2.setTitle("Processed URLs:")
         self.label_DownloadPath.setText(f"Downloading to: {self.download_path}")
         self.pushButton_2.setText("Explorer")
+        self.pushButton_5.setText("Clear Processed URLs")
+        self.pushButton_4.setText("Download all")
+        self.pushButton_3.setText("Toggle DL Enable")
 
     def show_aboutbox(self):
         """
@@ -1100,7 +1141,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         """
         title = "About YT Downloader PytubeFix Tool"
         amsg = (
-            '<h1 style="font-size:160%;color:red;">Programmed with love</h1>'
+            '<h1 style="font-size:160%;color:red;">Programmed with coffee and love</h1>'
             + '<h1 style="font-size:160%;color:black;">by '
             + __author__
             + '</h1> <p style="color:black;">github: '
@@ -1109,7 +1150,10 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             + __version__
             + '</p> <p style="color:black;">Creation date: '
             + __creationdate__
+            + '</p> <p style="color:black;">pytubefix: '
+            + __pytubefix__
             + "</p>"
+
         )
         # msgbox = QMessageBox.about(main_window,title,amsg)
         msgbox = QtWidgets.QMessageBox()
