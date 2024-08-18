@@ -331,13 +331,12 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             self.url_struct_options[key_s].update({"mp3": self.url_struct[key_s]["MP3"]})
 
     def _pytubefix_download_progress(self, url: str, per: float):
-        """
-        Shows download progress
+        """Shows download progress
         """
         # url = self.ongoing_download_url
         # This is momentary
         # print("========== >>>>>> Main got Signal Pytube fix Progress <<<<<<< ==========  \n" * 5)
-        
+
         url_id = self._identify_urlid_from_url_str(url)
         txt = f"Downloaded {per}% for {url_id} {url}"
         log.info(txt)
@@ -364,9 +363,9 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
 
         self.ongoing_download_url = url
         self.ongoing_download_title = title
-        
+
         url_id = self._identify_urlid_from_url_str(url)
-        log.info("Download started for ID: %s Title: %s \nURL: %s",url_id, title, url)
+        log.info("Download started for ID: %s Title: %s \nURL: %s", url_id, title, url)
         # print("url_id:", url_id, " url:", url, "\ntitle:", title)
         # create progressbar object
         progress_bar = QtWidgets.QProgressBar()
@@ -425,7 +424,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             self.ongoing_download_title = None
         url_id = self._identify_urlid_from_url_str(url)
         # print("url_id:", url_id, " url:", url, "\ntitle:", title)
-        log.info("Download finished for ID: %s Title: %s \nURL: %s",url_id, title, url)
+        log.info("Download finished for ID: %s Title: %s \nURL: %s", url_id, title, url)
         # add widget to twf
         it_w_dict = self.twf.itemwidget_dict.copy()
         track_list = it_w_dict["track_list"]
@@ -443,8 +442,8 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self._main_refresh_tablewidget()
 
     def _pytubefix_log(self, log_msg: str):
-        """
-        Logs message from pytubefix
+        """Logs message from pytubefix
+        
         Args:
              log_msg (str): message
         """
@@ -460,15 +459,13 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             log.info(log_msg)
 
     def get_general_config(self):
-        """
-        Returns the configuration set in yml file
+        """Returns the configuration set in yml file
         """
         self.default_config_path = self.app_path + os.sep + "config" + os.sep + "cfg.yml"
         return self.open_configuration_yml_file(self.default_config_path)
 
     def open_configuration_yml_file(self, path_config_file):
-        """
-        Opens configuration file in yml format
+        """Opens configuration file in yml format
         """
         path_config = ""
         try:
@@ -495,8 +492,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         return path_config
 
     def _connect_actions(self):
-        """
-        Connect all objects
+        """Connect all objects
         """
         self.lineEdit_url.textChanged.connect(self._lineedit_url_changed)
         self.actionAbout.triggered.connect(self.show_aboutbox)
@@ -514,12 +510,12 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.tableWidget_url.customContextMenuRequested.connect(self._table_item_right_clicked)
 
     def _set_dl_enable(self):
-        """Sets all enabled/disabled 'DL Enable' """
+        """Sets all enabled/disabled 'DL Enable'"""
         all_id_list = self.get_id_list()
         if len(all_id_list) == 0:
             return
         dl_en_list = self._get_download_enabled_list()
-        if len(all_id_list) == len(dl_en_list) or len(dl_en_list) == 0: # all true or all false
+        if len(all_id_list) == len(dl_en_list) or len(dl_en_list) == 0:  # all true or all false
             for an_id in all_id_list:
                 b_val = bool(self.url_struct[an_id]["DL Enable"])
                 self.url_struct[an_id]["DL Enable"] = not b_val
@@ -528,19 +524,15 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                 if an_id not in dl_en_list:
                     b_val = bool(self.url_struct[an_id]["DL Enable"])
                     self.url_struct[an_id]["DL Enable"] = not b_val
-        
         self._main_refresh_tablewidget()
-
-
 
     def _open_windows_explorer(self):
         """Opens windows explorer in download path"""
         self.a_dialog.explore(self.download_path)
-    
+
     def _clear_table_widget_2(self):
-        """Removes items from the twf2 table
-        """
-        self.url_struct_results={}
+        """Removes items from the twf2 table"""
+        self.url_struct_results = {}
         self._main_refresh_tablewidget2()
 
     # Right click Menu
@@ -687,11 +679,10 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             # self.twf.tablewidgetobj.verticalHeader().setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
             # self.twf.tablewidgetobj.verticalHeader().setEditTriggers(QtWidgets.QAbstractItemView.setEditTriggers())
             # print(q_dl_stream.is_alive())
+        elif len(self.threads_event_list) >= 5:
+            log.warning("There are already 5 downloading threads simultaneously!")
         else:
-            if len(self.threads_event_list) >= 5: 
-                log.warning("There are already 5 downloading threads simultaneously!")
-            else:
-                log.warning("There is nothing to Download!")
+            log.warning("There is nothing to Download!")
 
     def _thread_exit_event(self, fine_exit: bool):
         """Thread ended and exit signal
@@ -736,8 +727,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self._remove_url_items(url_id_list, False)
 
     def _add_item_to_url_struct_results(self, url_id_list: list):
-        """
-        Adds item to url_struct_results dictionary and to twf2
+        """Adds item to url_struct_results dictionary and to twf2
         """
         for url_id in url_id_list:
             results_dict = {}
@@ -747,9 +737,9 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             self.url_struct_results.update({url_id: results_dict})
             self.url_id_counter = self.url_id_counter + 1
         self._main_refresh_tablewidget2()
-        
+
     def _main_refresh_tablewidget2(self):
-        """Refresh the tablewidget twf2 """
+        """Refresh the tablewidget twf2"""
         self.twf2.data_struct = self.url_struct_results
         self.twf2.set_show_dict()
         self.twf2.refresh_tablewidget(self.twf2.show_dict, self.twf2.modelobj, self.twf2.tablewidgetobj)
@@ -882,8 +872,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         return id_key_list, track_list
 
     def _pushbutton_url_pressed(self):
-        """
-        On pressed url button add to list
+        """On pressed url button add to list
         """
         # fast regex check
         the_link = self.lineEdit_url.text()
@@ -914,14 +903,12 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         return self.does_url_exist(url)
 
     def get_id_list(self):
-        """
-        Get the ids of the items in view
+        """Get the ids of the items in view
         """
         return self.a_ufun.get_dict_key_list(self.url_struct)
 
     def is_id_taken(self, an_id) -> bool:
-        """
-        Check if the id is taken
+        """Check if the id is taken
         """
         idlist = self.get_id_list()
         if an_id in idlist:
@@ -929,8 +916,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         return False
 
     def add_item_to_url_struct(self, url: str):
-        """
-        Adds item to list
+        """Adds item to list
         """
         vid_list, vid_list_url = self.ptf.get_any_yt_videos_list(url)
         for vid_title, vid_url in zip(vid_list, vid_list_url):
@@ -979,8 +965,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         return exception_tuple
 
     def does_url_exist(self, url):
-        """
-        Check if the given url exists or not
+        """Check if the given url exists or not
         """
         try:
             response = requests.get(url, timeout=10)
@@ -1074,8 +1059,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                     log.error(e)
 
     def set_download_path(self):
-        """
-        Sets the path for download and stores the configuration
+        """Sets the path for download and stores the configuration
         """
         dl_dir = self.a_dialog.open_directory_dialog(caption="Select Download directory")
         log.info("Download dir: %s", dl_dir)
@@ -1085,8 +1069,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.label_DownloadPath.setText(f"Downloading to: {self.download_path}")
 
     def set_general_config_to_yml_file(self):
-        """
-        Saves the general configuration
+        """Saves the general configuration
         """
         try:
             if os.path.exists(self.path_config_file):
@@ -1098,8 +1081,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             log.error("Saving yml configuration file!")
 
     def _lineedit_url_changed(self):
-        """
-        When line edit changed
+        """When line edit changed
         """
         urlexists = self.does_url_exist(self.lineEdit_url.text())
         if urlexists:
@@ -1108,8 +1090,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             self.lineEdit_url.setToolTip("")
 
     def _set_splitter_pos(self, pos, per=None):
-        """
-        Sets the position of the splitter
+        """Sets the position of the splitter
         """
         sizes = self.splitter.sizes()
         tot = sizes[1] + sizes[0]
@@ -1123,10 +1104,11 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.splitter.adjustSize()
 
     def _set_path_labels(self):
+        """Set texts and labels in Gui
         """
-        Set texts and labels in Gui
-        """
-        self.lineEdit_url.setToolTip("Type YT url,channel,playlist or comma separated list in format '[URL1, ..., URLN]'")
+        self.lineEdit_url.setToolTip(
+            "Type YT url,channel,playlist or comma separated list in format '[URL1, ..., URLN]'"
+        )
         self.groupBox.setTitle("List of URLs:")
         self.groupBox_2.setTitle("Processed URLs:")
         self.label_DownloadPath.setText(f"Downloading to: {self.download_path}")
@@ -1136,8 +1118,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.pushButton_3.setText("Toggle DL Enable")
 
     def show_aboutbox(self):
-        """
-        Shows About box
+        """Shows About box
         """
         title = "About YT Downloader PytubeFix Tool"
         amsg = (
@@ -1153,7 +1134,6 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             + '</p> <p style="color:black;">pytubefix: '
             + __pytubefix__
             + "</p>"
-
         )
         # msgbox = QMessageBox.about(main_window,title,amsg)
         msgbox = QtWidgets.QMessageBox()
@@ -1221,10 +1201,7 @@ class MyWindow(QtWidgets.QMainWindow):
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     main_window = MyWindow()  # QtWidgets.QMainWindow() #Modified to close windows
-    ui = UiMainWindowYt()  # GUI_PostProcessing.Ui_MainWindow()
-    # Create Queue and redirect sys.stdout to this queue
-    # sys.stdout = WriteStream(a_queue)
-    # Log handler
+    ui = UiMainWindowYt()  # .Ui_MainWindow()
 
     ui.setupUi(main_window)
     ui.setup_ui2(main_window)
