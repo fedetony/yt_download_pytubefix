@@ -332,11 +332,12 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         """
         # url = self.ongoing_download_url
         # This is momentary
-        print("========== >>>>>> Main got Signal Pytube fix Progress <<<<<<< ==========  \n" * 5)
-        txt = f"Downloaded {per}% for {url}"
-        log.info(txt)
+        # print("========== >>>>>> Main got Signal Pytube fix Progress <<<<<<< ==========  \n" * 5)
+        
         url_id = self._identify_urlid_from_url_str(url)
-        print("url_id:", url_id, " url:", url)
+        txt = f"Downloaded {per}% for {url_id} {url}"
+        log.info(txt)
+        # print("url_id:", url_id, " url:", url)
 
         # add widget to twf
         it_w_dict = self.twf.itemwidget_dict.copy()
@@ -355,14 +356,14 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             url (str): url of download
             title (str): title of the download
         """
-        print("========== >>>>>> Main got Signal Start <<<<<<< ==========  \n" * 5)
+        # print("========== >>>>>> Main got Signal Start <<<<<<< ==========  \n" * 5)
 
         self.ongoing_download_url = url
         self.ongoing_download_title = title
-        log.info("Download started for %s", title)
+        
         url_id = self._identify_urlid_from_url_str(url)
-        print("url_id:", url_id, " url:", url, "\ntitle:", title)
-
+        log.info("Download started for ID: %s Title: %s \nURL: %s",url_id, title, url)
+        # print("url_id:", url_id, " url:", url, "\ntitle:", title)
         # create progressbar object
         progress_bar = QtWidgets.QProgressBar()
         progress_bar.setGeometry(QtCore.QRect(60, 60, 118, 23))
@@ -413,16 +414,14 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             url (str): url of download
             title (str): title of the download
         """
-        print("========== >>>>>> Main got Signal End <<<<<<< ==========  \n" * 5)
-        print("url:", url, "\ntitle:", title)
+        # print("========== >>>>>> Main got Signal End <<<<<<< ==========  \n" * 5)
+        # print("url:", url, "\ntitle:", title)
         if url == self.ongoing_download_url:
             self.ongoing_download_url = None
             self.ongoing_download_title = None
-        log.info("Download finished for %s", title)
-
         url_id = self._identify_urlid_from_url_str(url)
-        print("url_id:", url_id, " url:", url, "\ntitle:", title)
-
+        # print("url_id:", url_id, " url:", url, "\ntitle:", title)
+        log.info("Download finished for ID: %s Title: %s \nURL: %s",url_id, title, url)
         # add widget to twf
         it_w_dict = self.twf.itemwidget_dict.copy()
         track_list = it_w_dict["track_list"]
@@ -525,36 +524,19 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         if len(track) == 0:
             return
         self.item_menu = QtWidgets.QMenu()
-        menu_item01 = self.item_menu.addAction(f"Toggle {track}")
-        menu_item01.setIcon(self.icon_toggle)
+        menu_item01 = self._add_action_to_menu(f"Toggle {track}", False, self.icon_toggle)
         self.item_menu.addSeparator()
-        menu_item10 = self.item_menu.addAction(f"URL info {track[0]}")
-        menu_item10.setIcon(self.icon_info)
-        menu_item11 = self.item_menu.addAction(f"Set Download Path {id_key_list}")
-        menu_item11.setIcon(self.icon_download_folder)
+        # menu_item10 = self._add_action_to_menu(f"URL info {track[0]}", True, self.icon_info)
+        menu_item11 = self._add_action_to_menu(f"Set Download Path {id_key_list}", True, self.icon_download_folder)
         self.item_menu.addSeparator()
         # menu_item20 = self.item_menu.addAction(f"Download {track[0]}")
-        menu_item21 = self.item_menu.addAction(f"Download {id_key_list}")
-        menu_item21.setIcon(self.icon_download_selected)
+        menu_item21 = self._add_action_to_menu(f"Download {id_key_list}", True, self.icon_download_selected)
         self.item_menu.addSeparator()
-        menu_item40 = self.item_menu.addAction(f"Remove {id_key_list}")
-        menu_item40.setIcon(self.icon_minus)
+        menu_item40 = self._add_action_to_menu(f"Remove {id_key_list}", True, self.icon_minus)
         self.item_menu.addSeparator()
-        menu_item60 = self.item_menu.addAction("Download All")
-        menu_item60.setIcon(self.icon_download_all)
+        menu_item60 = self._add_action_to_menu("Download All", True, self.icon_download_all)
         self.item_menu.addSeparator()
-        menu_item61 = self.item_menu.addAction("Remove All")
-        menu_item61.setIcon(self.icon_clear)
-
-        # default enabled in menu
-        menu_item01.setEnabled(False)
-        menu_item10.setEnabled(True)
-        menu_item11.setEnabled(True)
-        # menu_item20.setEnabled(True)
-        menu_item21.setEnabled(True)
-        menu_item40.setEnabled(True)
-        menu_item60.setEnabled(True)
-        menu_item61.setEnabled(True)
+        menu_item61 = self._add_action_to_menu("Remove All", True, self.icon_clear)
 
         if len(id_key_list) == 0:
             menu_item11.setEnabled(False)
@@ -591,6 +573,22 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         # position is already global
         self.item_menu.move(apos)
         self.item_menu.show()
+
+    def _add_action_to_menu(self, text: str, is_enabled: bool, an_icon: QtGui.QIcon = None):
+        """_summary_
+
+        Args:
+            text (str):text of menu
+            an_icon (QtGui.QIcon, optional): Icon. Defaults to None.
+
+        Returns:
+            QAction: menu action
+        """
+        menu_itemxx = self.item_menu.addAction(text)
+        if an_icon:
+            menu_itemxx.setIcon(an_icon)
+        menu_itemxx.setEnabled(is_enabled)
+        return menu_itemxx
 
     def _get_download_enabled_list(self) -> list:
         """Gets the list of DL Enable items
@@ -692,12 +690,12 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                         the file_properties_dict contains the same information as:
                         self.url_struct_options[url_id], but the key is the thread index.
         """
-        print(map_list)
+        # print(map_list)
         thread_index_url_id_list = self._identify_thread_index_url_id(map_list)
         url_id_list = []
         for pair in thread_index_url_id_list:
             url_id_list.append(pair[1])
-            print("url_id->", pair[1], "thrindex->", pair[0])
+            # print("url_id->", pair[1], "thrindex->", pair[0])
         self._add_item_to_url_struct_results(url_id_list)
         self._remove_url_items(url_id_list, False)
 
