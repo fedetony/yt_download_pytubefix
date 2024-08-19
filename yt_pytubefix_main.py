@@ -48,27 +48,41 @@ import yt_pytubefix_gui
 # set up logging to file - see previous section for more details
 log = logging.getLogger("")  # root logger
 # For file
+if getattr(sys, "frozen", False):
+    APP_PATH = os.path.dirname(sys.executable)
+elif __file__:
+    APP_PATH = os.path.dirname(__file__)
+LOG_PATH=APP_PATH+os.sep+"logs"
+if not os.path.exists(LOG_PATH):
+    os.mkdir(LOG_PATH)
 """
-logging.basicConfig(level=logging.DEBUG,
+logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s',
                     datefmt='%y-%m-%d %H:%M',
-                    filename='/temp/__last_run__.log',
-                    filemode='w')
+                    filename=LOG_PATH+os.sep+'__last_run__.log',
+                    filemode='a')
 """
+
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s", datefmt="%y-%m-%d %H:%M"
 )
 # define a Handler which writes INFO messages or higher to the sys.stderr
 # console = logging.StreamHandler()
 console = logging.StreamHandler(sys.stdout)
-console.setLevel(logging.INFO)
+console.setLevel(logging.DEBUG)
 # set a format which is simpler for console use
 formatter = logging.Formatter("[%(levelname)s] (%(threadName)-10s) %(message)s")
+file_formatter = logging.Formatter("%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s")
 # tell the handler to use this format
 console.setFormatter(formatter)
-# add the handler to the root logger
-logging.getLogger("").addHandler(console)
 
+file_handler = logging.FileHandler(LOG_PATH+os.sep+'__yt_pytubefix_gui__.log')
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(file_formatter)
+# add the handlers to the root logger
+logging.getLogger("").addHandler(console)
+logging.getLogger("").addHandler(file_handler)
+logging.getLogger("").propagate = False
 
 class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
     """GUI for handleing Pytubefix

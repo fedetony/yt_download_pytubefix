@@ -23,6 +23,7 @@ ahandler = logging.StreamHandler()
 ahandler.setLevel(logging.INFO)
 ahandler.setFormatter(formatter)
 log.addHandler(ahandler)
+log.propagate = False
 
 
 class ThreadQueueDownloadStream(threading.Thread):
@@ -372,43 +373,7 @@ class ThreadQueueDownloadStream(threading.Thread):
 
 def main():
     """Standalone Test for stream"""
-    import sys
-    from PyQt5 import QtWidgets
-
-    app = QtWidgets.QApplication(sys.argv)
-    _ = app  # Need to create an app for class SignalTracker
-    kill_ev = threading.Event()
-    kill_ev.clear()
-    file_properties_dict = {
-        "0": {
-            "URL": "https://www.youtube.com/watch?v=4b3jASuJitw",
-            "output_path": None,
-            "filename": None,
-            "filename_prefix": None,
-            "skip_existing": True,
-            "timeout": None,
-            "max_retries": 0,
-            "mp3": False,
-        }
-    }
-    an_st = class_signal_tracker.SignalTracker()
-    cycle_time = 0.1
-    q_dl_stream = ThreadQueueDownloadStream(file_properties_dict, cycle_time, kill_ev, an_st)
-    q_dl_stream.start()
-
-    # while not kill_ev.is_set():
-    count = 0
-    print("Download Started!!! :)")
-    try:
-        while q_dl_stream.is_alive():
-            print("Downloading -> ", q_dl_stream.actual_url_index, count * 5)
-            count = count + 1
-            time.sleep(5)
-
-    except:
-        pass
-    print("Download Finished!!! :)")
-    sys.exit()
+    print("You need PyQT signals to make it work :)")
 
 
 if __name__ == "__main__":

@@ -20,7 +20,7 @@ formatter = logging.Formatter("[%(levelname)s] (%(threadName)-10s) %(message)s")
 twconsole.setFormatter(formatter)
 # add the handler to the root logger
 logging.getLogger("").addHandler(twconsole)
-
+logging.getLogger("").propagate = False
 
 class CheckRestrictions:
     """
