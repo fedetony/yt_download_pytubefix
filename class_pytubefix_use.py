@@ -1,10 +1,15 @@
 import re
+import os
 from pytubefix import YouTube, Playlist, Stream
 from pytubefix.cli import on_progress
 from pytubefix import Channel
 
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import *
+import proglog
+from moviepy.editor import VideoFileClip, AudioFileClip
+
+import class_file_dialogs
 
 
 class use_pytubefix(QWidget):   
@@ -16,6 +21,7 @@ class use_pytubefix(QWidget):
     def __init__(self, *args, **kwargs):        
         super(use_pytubefix, self).__init__(*args, **kwargs)    
         self.__name__="pytubefix"
+        self.cfd =class_file_dialogs.Dialogs()
 
     def _on_progress(self, stream: Stream,
                 chunk: bytes,
@@ -86,7 +92,106 @@ class use_pytubefix(QWidget):
             except Exception as eee:
                 #print(eee)
                 self.to_log.emit("Error Downloading: {}".format(eee))
+    
+    def get_streams_available(self, url: str):
+        """Gets progressive (audio and video together low resolution)
+        and adaptive (audio and video together high resolution) streams"""
+        yt = self.get_yt_video_from_url(url)
+        ys_progressive=None
+        ys_adaptive=None
+        if yt:
+            ys_progressive=yt.streams.filter(progressive=True,file_extension='mp4').desc()
+            ys_adaptive = yt.streams.filter(adaptive=True,file_extension='mp4').desc()
+        return ys_progressive,ys_adaptive
 
+
+    def download_video_best_quality(self, url: str, output_path: str,
+                filename: str = None,
+                filename_prefix: str = None,
+                skip_existing: bool = True,
+                timeout: int = None,
+                max_retries: int = 0,
+                mp3: bool = False,
+                ):    
+        yt = self.get_yt_video_from_url(url)
+        if yt:
+            self.to_log.emit(f"PyTubefix Downloading: {yt.title}")
+            if mp3:                
+                ys = yt.streams.filter(adaptive=True, file_extension='mp4', only_audio=True).order_by('abr').desc().first()
+                try:
+                    self.download_start.emit(url,yt.title)
+                    ys.download(output_path = output_path,
+                        filename = filename,
+                        filename_prefix = filename_prefix,
+                        skip_existing = skip_existing,
+                        timeout = timeout,
+                        max_retries = max_retries,
+                        mp3 = mp3)
+                    self.download_end.emit(url,yt.title)
+                except Exception as eee:
+                    #print(eee)
+                    self.to_log.emit("Error Downloading: {}".format(eee))
+            else:
+                try:
+                    video_stream = yt.streams.filter(adaptive=True, file_extension='mp4', only_video=True).order_by('resolution').desc().first()
+                    audio_stream = yt.streams.filter(adaptive=True, file_extension='mp4', only_audio=True).order_by('abr').desc().first()
+                    if not filename:
+                        filename=self.clean_filename(yt.title,'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -')
+                    filename_prefix_txt=""
+                    if filename_prefix:
+                        filename_prefix_txt=filename_prefix
+                    # filename=self.cfd.extract_filename(filename,False)
+                    complete_output_path=output_path+os.sep+filename_prefix_txt+filename+".mp4"
+                    self.download_start.emit(url,yt.title)
+                    if os.path.exists(complete_output_path) and skip_existing:
+                        self.to_log.emit("Already existing: {}".format(complete_output_path))
+                        self.download_end.emit(url,yt.title)
+                        return
+                    video_stream.download(output_path = output_path,
+                        filename = "vid_"+filename+".mp4",
+                        filename_prefix = filename_prefix,
+                        skip_existing = skip_existing,
+                        timeout = timeout,
+                        max_retries = max_retries,
+                        mp3 = mp3)
+                    audio_stream.download(output_path = output_path,
+                        filename = "aud_"+filename+".mp4",
+                        filename_prefix = filename_prefix,
+                        skip_existing = skip_existing,
+                        timeout = timeout,
+                        max_retries = max_retries,
+                        mp3 = mp3)
+                    vid_complete_output_path=output_path+os.sep+filename_prefix_txt+"vid_"+filename+".mp4"
+                    aud_complete_output_path=output_path+os.sep+filename_prefix_txt+"aud_"+filename+".mp4"
+                    self.to_log.emit(f"PyTubefix Downloaded video and audio file for: {yt.title}")
+                    video_clip = VideoFileClip(vid_complete_output_path)
+                    audio_clip = AudioFileClip(aud_complete_output_path)
+                    self.to_log.emit(f"Joining video and audio file for: {yt.title}")
+                    final_clip = video_clip.set_audio(audio_clip)
+                    _the_logger=MyProgLogger()
+                    _the_logger.set_signal_on_progress(self.on_progress)
+                    final_clip.write_videofile(complete_output_path, codec='libx264',logger=_the_logger)
+                    os.remove(vid_complete_output_path)
+                    os.remove(aud_complete_output_path)
+                    self.download_end.emit(url,yt.title)
+                except Exception as eee:
+                    #print(eee)
+                    self.to_log.emit("Error Downloading: {}".format(eee))
+
+    def clean_filename(self, filename, allowed_chars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._ -'):
+        """Remove all undesired characters from a file name while preserving the file extension.
+
+        Args:
+            filename (str): The file name to be cleaned.
+            allowed_chars (str): A string of allowed characters. Defaults to 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._ -'.
+
+        Returns:
+            str: The cleaned file name.
+        """
+        base, extension = os.path.splitext(filename)
+        cleaned_base = re.sub('[^' + allowed_chars + ']', '', base)
+        return cleaned_base + extension
+        
     
     def get_url_info(self,url):
         yt_info={}
@@ -359,3 +464,43 @@ class use_pytubefix(QWidget):
                 except Exception as eee:
                     #print(eee)
                     self.to_log.emit("Error Downloading: {}".format(eee))
+
+class MyProgLogger(proglog.ProgressBarLogger):
+    def set_signal_on_progress(self,on_progress):
+        """Sets signal """ 
+        self.on_progress=on_progress
+
+    def bars_callback(self, bar, attr, value, old_value=None):
+        """Execute a custom action after the progress bars are updated.
+
+        Parameters
+        ----------
+        bar
+          Name/ID of the bar to be modified.
+
+        attr
+          Attribute of the bar attribute to be modified
+
+        value
+          New value of the attribute
+
+        old_value
+          Previous value of this bar's attribute.
+
+        This default callback does nothing, overwrite it by subclassing.
+        """
+        try:
+            self.on_progress.emit([value,self.state['bars'][bar]['total']])
+        except (NameError,AttributeError):
+            print(self.state)
+            print( bar, attr, value, old_value)
+        if value<1:
+            print(self.state['bars'][bar][attr],self.state['bars'][bar]['total'])
+            # {'bars': OrderedDict([('chunk', {'title': 'chunk', 'index': 0, 'total': 46010, 'message': None, 'indent': 0})]), 
+            # 'message': 'MoviePy - Writing audio in FreeCAD020ForBeginners8PartvsPartDesignRevolveWorkflowsWhenandWheretouseTEMP_MPY_wvf_snd.mp3'}
+            # {'bars': OrderedDict([('chunk', {'title': 'chunk', 'index': 46010, 'total': 46010, 'message': None, 'indent': 0}), 
+            # ('t', {'title': 't', 'index': 0, 'total': 62598, 'message': None, 'indent': 2})]), 
+            # 'message': 'Moviepy - Writing video D:/Tonys Data/Python/yt_download_pytubefix/Downloads\\FreeCAD020ForBeginners8PartvsPartDesignRevolveWorkflowsWhenandWheretouse.mp4\n'}
+        # print( bar, attr, value, old_value)
+    
+    

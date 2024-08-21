@@ -2,6 +2,7 @@
 Class for checking restriction parameters
 Programed by: F.Garcia
 """
+import re
 
 class UsefulFunctions:
     """
@@ -98,5 +99,21 @@ class UsefulFunctions:
         else:
             return indict
         return outdict
+    
+    def extract_value(self,extract_str:str,a_string:str):
+        """
+        Extract the value from a string in the format:
+        <Stream: itag="18" mime_type="video/mp4" res="360p" fps="30fps" vcodec="avc1.42001E" acodec="mp4a.40.2" progressive="True" type="video">
 
+        Args:
+            a_string (str): The input string containing the stream metadata.
+            extract_str (str): "res=" will extract "360p"
+        Returns:
+            str: The extracted resolution value (e.g., "360p").
+        """
+        pattern = extract_str+r'"([^"]+)"'
+        match = re.search(pattern, a_string)
+        if match:
+            return match.group(1)
+        return None
     

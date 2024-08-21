@@ -149,6 +149,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             "__any__": {
                 "Index": {"__m__1": "is_unique", "__mv__1": ""},
                 "DL Status": {"__m__1": "is_not_change", "__mv__1": ""},
+                "Resolution": {"__m__1": "is_not_change", "__mv__1": ""},
                 "Title": {"__m__1": "is_value_type", "__mv__1": str(str)},
                 "URL": {"__m__1": "is_value_type", "__mv__1": str(str), "__m__2": "is_not_change", "__mv__2": ""},
                 "DL Enable": {"__m__1": "is_value_type", "__mv__1": str(bool)},
@@ -171,6 +172,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                 "File Name": {"__m__1": "is_format", "__mv__1": r"^[a-zA-Z0-9._-]+(\.[a-zA-Z0-9._-]+)?$"},
                 "File Name Prefix": {"__m__1": "is_format", "__mv__1": r"^[a-zA-Z0-9._-]+$"},
                 "Download Path": {"__m__1": "is_not_change", "__mv__1": ""},
+                #"Selected Resolution Codec": {"__m__1": "is_value_type", "__mv__1": str(str)},
             },
             # This was to test restriction on a specific id :) works
             # "URL0": {
@@ -212,6 +214,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         # self.model=self.twf.modelobj
         self.twf.signal_data_change[list, str, str, str].connect(self._table_widget_data_changed)
         self.twf.signal_item_button_right_clicked[list, QtCore.QPoint].connect(self._table_item_right_clicked)
+        self.twf.signal_item_combobox_currentindexchanged[int, str, list].connect(self._table_item_comboboxindexchanged)
         # self.icons_dict={'Plots':self.icon_main}
 
         # self.tvf.Expand_to_Depth(1)
@@ -339,22 +342,22 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                         "timeout": None if int(struct_dict["Timeout sec"]) <= 0 else int(struct_dict["Timeout sec"]),
                         "max_retries": int(struct_dict["Max Retries"]),
                         "mp3": struct_dict["MP3"],
+                        "selected_resolution": "",
                     },
                 }
             )
             self.url_struct_options[key_s].update({"mp3": self.url_struct[key_s]["MP3"]})
+            #self.url_struct_options[key_s].update({"selected_resolution": self.url_struct[key_s]["Selected Resolution Codec"]})
+
 
     def _pytubefix_download_progress(self, url: str, per: float):
         """Shows download progress
         """
-        # url = self.ongoing_download_url
-        # This is momentary
-        # print("========== >>>>>> Main got Signal Pytube fix Progress <<<<<<< ==========  \n" * 5)
-
         url_id = self._identify_urlid_from_url_str(url)
-        txt = f"Downloaded {per}% for {url_id} {url}"
-        log.info(txt)
-        # print("url_id:", url_id, " url:", url)
+
+        # printing too many lines when joining video and audio
+        #txt = f"Downloaded {per}% for {url_id} {url}"
+        #log.info(txt)
 
         # add widget to twf
         it_w_dict = self.twf.itemwidget_dict.copy()
@@ -448,7 +451,8 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             if self._is_same_list(track, [url_id, "DL Status"]):
                 track_list.pop(nnn)
                 widget_list.pop(nnn)
-
+        self._add_remove_downloading_icons_([url_id],False,None)
+        self._add_remove_downloading_icons_([url_id],True,self.icon_main)
         it_w_dict.update({"track_list": track_list})
         it_w_dict.update({"widget_list": widget_list})
         self.twf.set_items_widgets(it_w_dict)
@@ -641,6 +645,140 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                 dl_enabled_list.append(an_id)
         return dl_enabled_list
 
+    def _table_item_comboboxindexchanged(self,index:int, currenttxt:str, track:list):
+        """Sets selected resoulution on index changed
+
+        Args:
+            index (int): index of combo element
+            currenttxt (str): selected text
+            track (list): track list of item in table
+        """
+        print("&& "*50,index, currenttxt, track)
+        # try:
+        #     _=index
+        #     url_id=track[0]
+        #     url=self.url_struct[url_id]["URL"]
+        #     prog=self._get_available_resolutions_progressive(url)
+        #     adapt=self._get_available_resolutions_adaptive(url)
+        #     sel_track = [url_id, "Selected Resolution Codec"]
+        #     for ppp in prog + adapt:
+        #         if currenttxt == str(ppp):
+        #             print(sel_track, currenttxt)
+        #             self.twf.set_tracked_value_to_dict(sel_track, currenttxt, self.url_struct, "", False)
+        #             print(self.url_struct[url_id]["Selected Resolution Codec"])
+        #             # self._main_refresh_tablewidget()
+        #             # print("------> were set")
+        #             # self._update_shared_struct_options()
+        #             # print(self.url_struct_options[url_id]["selected_resolution"])
+        #             # print("------> options updated")
+        #             # self._main_refresh_tablewidget()
+        #             # print("------> refreshed")
+        #             break
+        # except Exception as eee:
+        #     print(eee)
+        print("&& "*50,"----->exit here")
+    
+    def _get_resolution_combobox_value(self,url_id) -> str:
+        """Gets actual value in the combobox for url_id
+
+        Args:
+            url_id (any): url id
+
+        Returns:
+            str: combobox selection text
+        """
+        current_text=None
+        it_w_dict = self.twf.itemwidget_dict.copy()
+        track_list = it_w_dict["track_list"]
+        widget_list = it_w_dict["widget_list"]
+        for lll,(track,wiget) in enumerate(zip(track_list,widget_list)):
+            if self._is_same_list([url_id, "Resolution"],track):
+                if isinstance(wiget,QtWidgets.QComboBox):
+                    index=wiget.currentIndex()
+                    current_text=wiget.itemText(index)
+                    break
+        return current_text            
+        
+
+
+    def _add_resolution_combobox(self,url_id,url:str):
+        """Adds combobox to item with the resolution selection
+
+        Args:
+            url_id (any): Url id of item
+            url (str): url to search for resolutions
+        """
+        combobox = QtWidgets.QComboBox()
+        first_progressive = None
+        for nnn,ppp in enumerate(self._get_available_resolutions_progressive(url)):
+            if nnn==0:
+                first_progressive=str(ppp)
+            combobox.addItem(str(ppp))
+        for nnn,aaa in enumerate(self._get_available_resolutions_adaptive(url)):
+            combobox.addItem(str(aaa))
+        
+        #set best progressive as default
+        if first_progressive:
+            index= combobox.findText(first_progressive,QtCore.Qt.MatchFixedString)
+            combobox.setCurrentIndex(index)
+            # track = [url_id, "Selected Resolution Codec"]
+            # self.twf.set_tracked_value_to_dict(track, first_progressive, self.url_struct, "", False)
+        
+        # add widget to twf
+        it_w_dict = self.twf.itemwidget_dict.copy()
+        track_list = it_w_dict["track_list"]
+        track_list.append([url_id, "Resolution"])
+        widget_list = it_w_dict["widget_list"]
+        widget_list.append(combobox)
+        it_w_dict.update({"track_list": track_list})
+        it_w_dict.update({"widget_list": widget_list})
+        self.twf.set_items_widgets(it_w_dict)
+
+    def _add_remove_downloading_icons_(self,id_key_list:list, add_to:bool,the_icon:QtGui.QIcon = None,the_twf:int=1):
+        """Adds icons to being dowloaded items
+
+        Args:
+            id_key_list (list): items to download
+            add_to (bool) : True adds icons,False remove them
+            the_twf (int): Tablewidget twf=1 and twf2=2. Defauelt 1
+        """
+        if the_twf==1:
+            it_icon_dict = self.twf.icon_dict.copy()
+        elif the_twf==2:
+            it_icon_dict = self.twf2.icon_dict.copy()
+        track_list = it_icon_dict["track_list"]
+        icon_list = it_icon_dict["icon_list"] 
+        if add_to and the_icon is not None:
+           # add icon to twf
+            for id_key in id_key_list:
+                track= [id_key,"DL Status"]
+                track_list.append(track)
+                icon_list.append(the_icon)
+            it_icon_dict.update({"track_list":track_list})
+            it_icon_dict.update({"icon_list":icon_list})
+        elif not add_to:
+            pos_to_del_list=[]
+            for id_key in id_key_list:
+                del_track= [id_key,"DL Status"]
+                for pos,track in enumerate(track_list):
+                    if self._is_same_list(del_track,track):
+                        pos_to_del_list.append(pos)
+            new_track_list = []
+            new_icon_list = []
+            for pos, (a_track, an_icon) in enumerate(zip(track_list,icon_list)):
+                if pos not in pos_to_del_list:
+                    new_track_list.append(a_track)
+                    new_icon_list.append(an_icon)
+            it_icon_dict={}
+            it_icon_dict.update({"track_list":new_track_list})
+            it_icon_dict.update({"icon_list":new_icon_list})
+        if the_twf==1:  
+            self.twf.set_items_icons(it_icon_dict)
+            self._main_refresh_tablewidget()   
+        elif the_twf==2: 
+            self.twf2.set_items_icons(it_icon_dict)
+            self._main_refresh_tablewidget2()  
+                
     def _download_selected_items(self, id_key_list: list):
         """
         Downloads the items in the list, starts a thread for each download
@@ -653,7 +791,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         if len(id_key_list) != len(id_list):
             log.info("Some URLs are not Download enabled, downloading only %s", id_list)
         id_key_list = id_list  # Download only enabled
-
+        self._add_remove_downloading_icons_(id_key_list,True,self.icon_download_selected)
         # prepare dict
         if len(self.threads_event_list) <= 5 and len(id_key_list) > 0:
             file_properties_dict = {}
@@ -737,6 +875,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         for pair in thread_index_url_id_list:
             url_id_list.append(pair[1])
             # print("url_id->", pair[1], "thrindex->", pair[0])
+        self._add_remove_downloading_icons_(url_id_list,False,None)
         self._add_item_to_url_struct_results(url_id_list)
         self._remove_url_items(url_id_list, False)
 
@@ -746,10 +885,12 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         for url_id in url_id_list:
             results_dict = {}
             for item, item_value in self.url_struct[url_id].items():
-                if item not in ["DL Enable"]:
+                if item not in ["DL Enable","Resolution"]:
                     results_dict.update({item: item_value})
             self.url_struct_results.update({url_id: results_dict})
             self.url_id_counter = self.url_id_counter + 1
+        self.twf2.set_items_icons()
+        self._add_remove_downloading_icons_(url_id_list,True,self.icon_main,2)
         self._main_refresh_tablewidget2()
 
     def _main_refresh_tablewidget2(self):
@@ -847,12 +988,77 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             self.url_struct_options = self.a_ufun.get_dict_wo_key(self.url_struct_options, a_key)
         self._main_refresh_tablewidget()
 
+    def _get_available_resolutions_progressive(self,url:str)->list:
+        """Gets the resolutions for progressive download
+
+        Args:
+            url (str): the url
+        Returns:
+            list: [itag,resolution,(codec_video,codec_audio)]
+        """
+        ys_p,_=self.ptf.get_streams_available(url)
+        resoulutions=[]
+        for ppp in ys_p:
+            #print("PRog:",ppp)
+            i_tag=self.a_ufun.extract_value("itag=",str(ppp))
+            c_aud=self.a_ufun.extract_value("acodec=",str(ppp))
+            c_vid=self.a_ufun.extract_value("vcodec=",str(ppp))
+            r_vid=self.a_ufun.extract_value("res=",str(ppp))
+            if r_vid and r_vid not in resoulutions:
+                resoulutions.append([i_tag,r_vid,(c_vid,c_aud)])
+        return resoulutions
+    
+    def _get_available_resolutions_adaptive(self,url:str) ->list:
+        """Gets the combinations of possible video-audio resolutions for adaptive download
+
+        Args:
+            url (str): the url
+        Returns:
+            list: [(itag_video,itag_audio),(resolution,audiobitrate),(codec_video,codec_audio)]
+        """
+        _, ys_a=self.ptf.get_streams_available(url)
+        resoulutions_vid=[]
+        resoulutions_aud=[]
+        for nnn,ppp in enumerate(ys_a):
+            i_tag=self.a_ufun.extract_value("itag=",str(ppp))
+            r_aud=self.a_ufun.extract_value("abr=",str(ppp))
+            if r_aud and r_aud not in resoulutions_aud:
+                c_aud=self.a_ufun.extract_value("acodec=",str(ppp))
+                resoulutions_aud.append([i_tag,r_aud,c_aud])
+            r_vid=self.a_ufun.extract_value("res=",str(ppp))
+            if r_vid and r_vid not in resoulutions_vid:
+                c_vid=self.a_ufun.extract_value("vcodec=",str(ppp))
+                resoulutions_vid.append([i_tag,r_vid,c_vid])
+        resoulutions=[]
+        for vid_res in resoulutions_vid:
+            for aud_res in resoulutions_aud:
+                resoulutions.append([(vid_res[0],aud_res[0]),(vid_res[1],aud_res[1]),(vid_res[2],aud_res[2])])
+        return resoulutions
+    
+    def _do_debug_stuff(self,track):
+        # url=self.url_struct[track[0]]["URL"]
+        # ys_p,ys_a=self.ptf.get_streams_available(url)
+        # for nnn,ppp in enumerate(ys_p):
+        #     print("PRog:",nnn,ppp)
+        # for nnn,aaa in enumerate(ys_a):
+        #     print("Adap:",nnn,aaa)
+        # print("-"*20)
+        # for nnn,ppp in enumerate(self._get_available_resolutions_progressive(url)):
+        #     print("PRog:",nnn,ppp)
+        # print("-"*20)
+        # for nnn,aaa in enumerate(self._get_available_resolutions_adaptive(url)):
+        #     print("Adap:",nnn,aaa)
+        
+        print(self._get_resolution_combobox_value(track[0]))
+        
+
     def _toggle_bool_item(self, track: list):
         """Toggles the value of a bool item in the Table
 
         Args:
             track (list): track of item
         """
+        self._do_debug_stuff(track)
         value_of_rc = self.twf.get_tracked_value_in_struct(track, self.url_struct)
         is_itm_bool = self.twf.check_restrictions.check_type(str(bool), value_of_rc, True)
         if is_itm_bool:
@@ -932,28 +1138,33 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
     def add_item_to_url_struct(self, url: str):
         """Adds item to list
         """
+        self.twf.tablewidgetobj.clearSelection()
         vid_list, vid_list_url = self.ptf.get_any_yt_videos_list(url)
         for vid_title, vid_url in zip(vid_list, vid_list_url):
             new_id = self.a_ufun.get_unique_id("URL0", self.get_id_list(), "URL")
             self.url_struct.update(
                 {
                     new_id: {
-                        "Index": self.url_id_counter,
+                        "Index": self.url_id_counter, #int(new_id.replace("URL","")),
                         "DL Status": "",
                         "Title": vid_title,
                         "URL": vid_url,
                         "DL Enable": True,
                         "MP3": False,
                         "Skip Existing": True,
+                        "Resolution": "",
                         "Timeout sec": 0,
                         "Max Retries": 0,
                         "File Name": "",
                         "File Name Prefix": "",
                         "Download Path": "",
+                        #"Selected Resolution Codec":"",
                     },
                 }
             )
-
+            print("$"*10+"updated")
+            #self._add_resolution_combobox(new_id,vid_url)
+            print("$"*10+"added combo")
             self.url_id_counter = self.url_id_counter + 1
         # This sets options dict
         self._update_shared_struct_options()
