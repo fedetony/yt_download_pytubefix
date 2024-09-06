@@ -81,6 +81,8 @@ class use_pytubefix(QWidget):
                 ys = yt.streams.get_audio_only()
             try:
                 self.download_start.emit(url,yt.title)
+                if not filename:
+                    filename=self.clean_filename(yt.title,'áéíóúüöäÜÖÄÁÉÍÓÚçÇabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -')
                 ys.download(output_path = output_path,
                     filename = filename,
                     filename_prefix = filename_prefix,
@@ -104,6 +106,99 @@ class use_pytubefix(QWidget):
             ys_adaptive = yt.streams.filter(adaptive=True,file_extension='mp4').desc()
         return ys_progressive,ys_adaptive
 
+    def download_video_selected_quality(self, url: str, output_path: str,
+                filename: str = None,
+                filename_prefix: str = None,
+                skip_existing: bool = True,
+                timeout: int = None,
+                max_retries: int = 0,
+                mp3: bool = False,
+                selected_resolution: tuple = ()
+                ):    
+        if len(selected_resolution)==0:
+            self.to_log.emit(f"No resolution given, setting max resolution!")
+            self.download_video_best_quality(url, output_path,filename,filename_prefix,skip_existing,timeout,max_retries,mp3) 
+            return
+        yt = self.get_yt_video_from_url(url)
+        if yt:
+            if not filename:
+                filename=self.clean_filename(yt.title,'áéíóúüöäÜÖÄÁÉÍÓÚçÇabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -')
+            self.to_log.emit(f"PyTubefix Downloading {selected_resolution}: {yt.title}")
+            if mp3:    
+                if len(selected_resolution)==2:
+                    ys = yt.streams.get_by_itag(selected_resolution[1])
+                else:            
+                    ys = yt.streams.filter(adaptive=True, file_extension='mp4', only_audio=True).order_by('abr').desc().first()
+                try:
+                    self.download_start.emit(url,yt.title)
+                    ys.download(output_path = output_path,
+                        filename = filename,
+                        filename_prefix = filename_prefix,
+                        skip_existing = skip_existing,
+                        timeout = timeout,
+                        max_retries = max_retries,
+                        mp3 = mp3)
+                    self.download_end.emit(url,yt.title)
+                except Exception as eee:
+                    #print(eee)
+                    self.to_log.emit(f"Error Downloading {selected_resolution}: {eee}")
+            else:
+                try:
+                    if len(selected_resolution)==2:
+                        video_stream = yt.streams.get_by_itag(selected_resolution[0])
+                        audio_stream = yt.streams.get_by_itag(selected_resolution[1])
+                        filename_prefix_txt=""
+                        if filename_prefix:
+                            filename_prefix_txt=filename_prefix
+                        # filename=self.cfd.extract_filename(filename,False)
+                        complete_output_path=output_path+os.sep+filename_prefix_txt+filename+".mp4"
+                        self.download_start.emit(url,yt.title)
+                        if os.path.exists(complete_output_path) and skip_existing:
+                            self.to_log.emit("Already existing: {}".format(complete_output_path))
+                            self.download_end.emit(url,yt.title)
+                            return
+                        video_stream.download(output_path = output_path,
+                            filename = "vid_"+filename+".mp4",
+                            filename_prefix = filename_prefix,
+                            skip_existing = skip_existing,
+                            timeout = timeout,
+                            max_retries = max_retries,
+                            mp3 = mp3)
+                        audio_stream.download(output_path = output_path,
+                            filename = "aud_"+filename+".mp4",
+                            filename_prefix = filename_prefix,
+                            skip_existing = skip_existing,
+                            timeout = timeout,
+                            max_retries = max_retries,
+                            mp3 = mp3)
+                        vid_complete_output_path=output_path+os.sep+filename_prefix_txt+"vid_"+filename+".mp4"
+                        aud_complete_output_path=output_path+os.sep+filename_prefix_txt+"aud_"+filename+".mp4"
+                        self.to_log.emit(f"PyTubefix Downloaded video and audio file for: {yt.title}")
+                        video_clip = VideoFileClip(vid_complete_output_path)
+                        audio_clip = AudioFileClip(aud_complete_output_path)
+                        self.to_log.emit(f"Joining video and audio file for: {yt.title}")
+                        final_clip = video_clip.set_audio(audio_clip)
+                        _the_logger=MyProgLogger()
+                        _the_logger.set_signal_on_progress(self.on_progress)
+                        final_clip.write_videofile(complete_output_path, codec='libx264',logger=_the_logger)
+                        os.remove(vid_complete_output_path)
+                        os.remove(aud_complete_output_path)
+                        self.download_end.emit(url,yt.title)
+                    elif len(selected_resolution)==1:
+                        self.to_log.emit(f"PyTubefix Downloading {selected_resolution}: {yt.title}")
+                        ys = yt.streams.get_by_itag(selected_resolution[0])
+                        self.download_start.emit(url,yt.title)
+                        ys.download(output_path = output_path,
+                            filename = filename,
+                            filename_prefix = filename_prefix,
+                            skip_existing = skip_existing,
+                            timeout = timeout,
+                            max_retries = max_retries,
+                            mp3 = mp3)
+                        self.download_end.emit(url,yt.title)
+                except Exception as eee:
+                    #print(eee)
+                    self.to_log.emit("Error Downloading: {}".format(eee))
 
     def download_video_best_quality(self, url: str, output_path: str,
                 filename: str = None,
@@ -115,6 +210,8 @@ class use_pytubefix(QWidget):
                 ):    
         yt = self.get_yt_video_from_url(url)
         if yt:
+            if not filename:
+                filename=self.clean_filename(yt.title,'áéíóúüöäÜÖÄÁÉÍÓÚçÇabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -')
             self.to_log.emit(f"PyTubefix Downloading: {yt.title}")
             if mp3:                
                 ys = yt.streams.filter(adaptive=True, file_extension='mp4', only_audio=True).order_by('abr').desc().first()
@@ -135,8 +232,6 @@ class use_pytubefix(QWidget):
                 try:
                     video_stream = yt.streams.filter(adaptive=True, file_extension='mp4', only_video=True).order_by('resolution').desc().first()
                     audio_stream = yt.streams.filter(adaptive=True, file_extension='mp4', only_audio=True).order_by('abr').desc().first()
-                    if not filename:
-                        filename=self.clean_filename(yt.title,'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -')
                     filename_prefix_txt=""
                     if filename_prefix:
                         filename_prefix_txt=filename_prefix
@@ -189,6 +284,7 @@ class use_pytubefix(QWidget):
             str: The cleaned file name.
         """
         base, extension = os.path.splitext(filename)
+        base = base.strip("¿?")
         cleaned_base = re.sub('[^' + allowed_chars + ']', '', base)
         return cleaned_base + extension
         

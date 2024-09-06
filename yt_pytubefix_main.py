@@ -149,7 +149,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             "__any__": {
                 "Index": {"__m__1": "is_unique", "__mv__1": ""},
                 "DL Status": {"__m__1": "is_not_change", "__mv__1": ""},
-                "Resolution": {"__m__1": "is_not_change", "__mv__1": ""},
+                #"Resolution": {"__m__1": "is_not_change", "__mv__1": ""}, # dont mask if it has widget
                 "Title": {"__m__1": "is_value_type", "__mv__1": str(str)},
                 "URL": {"__m__1": "is_value_type", "__mv__1": str(str), "__m__2": "is_not_change", "__mv__2": ""},
                 "DL Enable": {"__m__1": "is_value_type", "__mv__1": str(bool)},
@@ -347,7 +347,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                 }
             )
             self.url_struct_options[key_s].update({"mp3": self.url_struct[key_s]["MP3"]})
-            #self.url_struct_options[key_s].update({"selected_resolution": self.url_struct[key_s]["Selected Resolution Codec"]})
+            self.url_struct_options[key_s].update({"selected_resolution": self.url_struct[key_s]["Resolution"]})
 
 
     def _pytubefix_download_progress(self, url: str, per: float):
@@ -678,29 +678,30 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         #     print(eee)
         print("&& "*50,"----->exit here")
     
-    def _get_resolution_combobox_value(self,url_id) -> str:
-        """Gets actual value in the combobox for url_id
+    # def _get_resolution_combobox_value(self,url_id) -> str:
+    #     """Gets actual value in the combobox for url_id
 
-        Args:
-            url_id (any): url id
+    #     Args:
+    #         url_id (any): url id
 
-        Returns:
-            str: combobox selection text
-        """
-        current_text=None
-        it_w_dict = self.twf.itemwidget_dict.copy()
-        track_list = it_w_dict["track_list"]
-        widget_list = it_w_dict["widget_list"]
-        for lll,(track,wiget) in enumerate(zip(track_list,widget_list)):
-            if self._is_same_list([url_id, "Resolution"],track):
-                if isinstance(wiget,QtWidgets.QComboBox):
-                    index=wiget.currentIndex()
-                    current_text=wiget.itemText(index)
-                    break
-        return current_text            
+    #     Returns:
+    #         str: combobox selection text
+    #     """
+    #     current_text=None
+    #     it_w_dict = self.twf.itemwidget_dict
+    #     track_list = it_w_dict["track_list"]
+    #     widget_list = it_w_dict["widget_list"]
+    #     for lll,(track,wiget) in enumerate(zip(track_list,widget_list)):
+    #         if self._is_same_list([url_id, "Resolution"],track):
+    #             if isinstance(wiget,QtWidgets.QComboBox):
+    #                 try:
+    #                     index=wiget.currentIndex()
+    #                     current_text=wiget.itemText(index)
+    #                 except RuntimeError as err:
+    #                     log.error("Can't read Combobox: %s",err)
+    #                 break
+    #     return current_text            
         
-
-
     def _add_resolution_combobox(self,url_id,url:str):
         """Adds combobox to item with the resolution selection
 
@@ -708,7 +709,10 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             url_id (any): Url id of item
             url (str): url to search for resolutions
         """
+        
         combobox = QtWidgets.QComboBox()
+        # Tablewidget deletes objects after using setCellwidget, you can not set different comboboxes
+        # now combobox objects are delegated to cell information.
         first_progressive = None
         for nnn,ppp in enumerate(self._get_available_resolutions_progressive(url)):
             if nnn==0:
@@ -721,18 +725,21 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         if first_progressive:
             index= combobox.findText(first_progressive,QtCore.Qt.MatchFixedString)
             combobox.setCurrentIndex(index)
+            track = [url_id, "Resolution"]
+            self.twf.set_tracked_value_to_dict(track, first_progressive, self.url_struct, "", False)
             # track = [url_id, "Selected Resolution Codec"]
             # self.twf.set_tracked_value_to_dict(track, first_progressive, self.url_struct, "", False)
         
         # add widget to twf
-        it_w_dict = self.twf.itemwidget_dict.copy()
+        it_w_dict = self.twf.itemwidget_dict
         track_list = it_w_dict["track_list"]
         track_list.append([url_id, "Resolution"])
         widget_list = it_w_dict["widget_list"]
-        widget_list.append(combobox)
+        widget_list.append(combobox) 
         it_w_dict.update({"track_list": track_list})
         it_w_dict.update({"widget_list": widget_list})
         self.twf.set_items_widgets(it_w_dict)
+        print(self.twf.itemwidget_dict)
 
     def _add_remove_downloading_icons_(self,id_key_list:list, add_to:bool,the_icon:QtGui.QIcon = None,the_twf:int=1):
         """Adds icons to being dowloaded items
@@ -885,7 +892,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         for url_id in url_id_list:
             results_dict = {}
             for item, item_value in self.url_struct[url_id].items():
-                if item not in ["DL Enable","Resolution"]:
+                if item not in ["DL Enable"]:
                     results_dict.update({item: item_value})
             self.url_struct_results.update({url_id: results_dict})
             self.url_id_counter = self.url_id_counter + 1
@@ -1048,8 +1055,8 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         # print("-"*20)
         # for nnn,aaa in enumerate(self._get_available_resolutions_adaptive(url)):
         #     print("Adap:",nnn,aaa)
-        
-        print(self._get_resolution_combobox_value(track[0]))
+        print("7@7"*20)
+        # print(self._get_resolution_combobox_value(track[0]))
         
 
     def _toggle_bool_item(self, track: list):
@@ -1162,13 +1169,18 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                     },
                 }
             )
-            print("$"*10+"updated")
-            #self._add_resolution_combobox(new_id,vid_url)
-            print("$"*10+"added combo")
+            self._add_resolution_combobox(new_id,vid_url)
             self.url_id_counter = self.url_id_counter + 1
         # This sets options dict
         self._update_shared_struct_options()
         self._main_refresh_tablewidget()
+        # print(self.url_struct)
+        # print(self.url_struct_options)
+        # res_values=[]
+        # for url_id in self.get_id_list():
+        #     res_values.append(self.url_struct[url_id]["Resolution"])
+
+        # print("7$"*10+"refreshed->",res_values)
 
     def _get_request_exceptions_tuple(self) -> tuple:
         """Get exceptions from resource package

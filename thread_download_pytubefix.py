@@ -9,7 +9,7 @@ Is alive meanwhile there are downloads.
 import threading
 import queue
 import logging
-import time
+import re
 
 # from common import *
 import class_pytubefix_use
@@ -126,6 +126,7 @@ class ThreadQueueDownloadStream(threading.Thread):
                 "timeout": ... int = None,
                 "max_retries": ... int = 0,
                 "mp3": ... bool = False,
+                "selected_resolution": .... str = None
                 }
             }
             Each file has to have an options dictionary
@@ -197,6 +198,35 @@ class ThreadQueueDownloadStream(threading.Thread):
         self.number_of_files_downloaded = self.number_of_files_downloaded + 1
         log.info("Download finished: %s \nURL: %s", title, url)
 
+    def _get_items_from_resolution_txt(self,res_text:str) -> tuple:
+        """Extracts the initial numbers from the given text format.
+
+        Args:
+            text (str): The text format containing numbers.
+
+        Returns:
+            tuple: A tuple containing the extracted numbers.
+        """
+        # Remove leading and trailing parentheses and quotes
+        text = res_text.strip("[]\"'")
+        parts = text.split(', ')
+        if "(" in parts[0]:
+            new_parts=[parts[0].strip("()\"'"),parts[1].strip("()\"'")]
+        else:
+            new_parts=[parts[0].strip("()\"'")]
+        numbers = []
+
+        # Iterate over each part
+        for part in new_parts:
+            # Use regular expression to extract the number from the part
+            match = re.search(r'\d+(?:\.\d+)?', part)
+            # If a match is found, add the number to the list
+            if match:
+                numbers.append(int(match.group()))
+        # Return the extracted numbers as a tuple
+        return tuple(numbers)
+
+
     def download_file(self):
         """Downloads the file and sets actual info data."""
         if self.event_get_next_file_to_download.is_set():
@@ -212,17 +242,30 @@ class ThreadQueueDownloadStream(threading.Thread):
                 self.actual_url_properties = self.get_download_options_for_url(self.actual_url_index, self.actual_url)
                 #print(self.actual_url_properties)
                 self.actual_url_info = self.ptf.get_url_info(a_url)
-                #self.ptf.download_video(
-                self.ptf.download_video_best_quality(
-                    url=self.actual_url_properties["URL"],
-                    output_path=self.actual_url_properties["output_path"],
-                    filename=self.actual_url_properties["filename"],
-                    filename_prefix=self.actual_url_properties["filename_prefix"],
-                    skip_existing=self.actual_url_properties["skip_existing"],
-                    timeout=self.actual_url_properties["timeout"],
-                    max_retries=self.actual_url_properties["max_retries"],
-                    mp3=self.actual_url_properties["mp3"],
-                )
+                if not self.actual_url_properties["selected_resolution"]:
+                    self.ptf.download_video(
+                        url=self.actual_url_properties["URL"],
+                        output_path=self.actual_url_properties["output_path"],
+                        filename=self.actual_url_properties["filename"],
+                        filename_prefix=self.actual_url_properties["filename_prefix"],
+                        skip_existing=self.actual_url_properties["skip_existing"],
+                        timeout=self.actual_url_properties["timeout"],
+                        max_retries=self.actual_url_properties["max_retries"],
+                        mp3=self.actual_url_properties["mp3"],
+                    )
+                else:
+                    items_resolution=self._get_items_from_resolution_txt(self.actual_url_properties["selected_resolution"])
+                    self.ptf.download_video_selected_quality(
+                        url=self.actual_url_properties["URL"],
+                        output_path=self.actual_url_properties["output_path"],
+                        filename=self.actual_url_properties["filename"],
+                        filename_prefix=self.actual_url_properties["filename_prefix"],
+                        skip_existing=self.actual_url_properties["skip_existing"],
+                        timeout=self.actual_url_properties["timeout"],
+                        max_retries=self.actual_url_properties["max_retries"],
+                        mp3=self.actual_url_properties["mp3"],
+                        selected_resolution=items_resolution,
+                    )
 
     def add_one_line_to_buffer_ev(self):
         """Set event to add one line"""
@@ -352,7 +395,6 @@ class ThreadQueueDownloadStream(threading.Thread):
             a_url = self.file_queue.get_nowait()
             self.output_queue.put(a_url)
         except queue.Empty:
-            #log.info("@"*100 +"\nQUEUE FINISHED\n"+"@"*100)
             self.download_finished = True
         self.update_queue_sizes()
         self.refresh_progress_bar_files_downloaded()

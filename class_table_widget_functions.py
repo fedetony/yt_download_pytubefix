@@ -138,6 +138,8 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         self.set_items_icons()
         self.set_items_background_colors()
         self.set_items_tooltips()
+        # initialize list of registered widgets
+        self.widget_registered_list=[]
         self.set_items_widgets()
         self.set_items_rolevalues()
 
@@ -150,6 +152,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         self.tablewidgetobj.clicked.connect(self._tablewidget_onclick)
         #Install event filter for right click
         self.tablewidgetobj.viewport().installEventFilter(self)
+        
     
     def eventFilter(self, source, event):
         """Emits signal for right button clicked of item
@@ -444,6 +447,54 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         currentstate = chb.isChecked()
         self.signal_item_checkbox_checked.emit(currentstate, track)
 
+    def _is_registered_widget_track(self,track:list)->bool:
+        """checks if track has been registered
+
+        Args:
+            track (list): track of item
+
+        Returns:
+            bool: if is on registered list or not
+        """
+        for tr in  self.widget_registered_list:
+            if self._is_same_list(track, tr):
+                return True
+        return False
+    
+    def _remove_registered_widget_track_from_list(self,track):
+        """removes track if has been registered
+        Args:
+            track (list): track of item
+        """
+        if self._is_registered_widget_track(track):
+            new_reg_list=[]
+            for tr in  self.widget_registered_list:
+                if not self._is_same_list(track, tr):
+                    new_reg_list.append(tr)
+            self.widget_registered_list =  new_reg_list  
+    
+    def _add_registered_widget_track_to_list(self,track):
+        """adds track if has been registered
+        Args:
+            track (list): track of item
+        """
+        if not self._is_registered_widget_track(track):
+            self.widget_registered_list.append(track)
+    
+    def _remove_non_active_widgets_from_register(self):
+        """Deletes the non existing widgets from track list
+        """
+        track_list = self.itemwidget_dict["track_list"]
+        reg_list =self.widget_registered_list.copy()
+        for tr in reg_list:
+            in_track_list = False
+            for track in track_list:
+                if self._is_same_list(track, tr):
+                    in_track_list = True
+                    break
+            if not in_track_list:
+                self._remove_registered_widget_track_from_list(tr)
+            
     def _set_widget_to_item(self, itm: QtWidgets.QTableWidgetItem):
         """Sets a widget to the item and connects the functionality
             works for QPushButton, QComboBox , QCheckBox, QLabel objects
@@ -451,22 +502,29 @@ class TableWidgetFunctions(QtWidgets.QWidget):
         Args:
             itm (QtWidgets.QTableWidgetItem): Item to set the widget
         """
+        self._remove_non_active_widgets_from_register()
         try:
             track = self.get_track_of_item_in_table(itm)
             track_list = self.itemwidget_dict["track_list"]
             widget_list = self.itemwidget_dict["widget_list"]
+            
             for tr, iw in zip(track_list, widget_list):
                 if self._is_same_list(track, tr):
-
-                    self.tablewidgetobj.setCellWidget(itm.row(), itm.column(), iw)
-                    # itm.setWidget(iw)
+                    if not self._is_registered_widget_track(tr):
+                        # Only set once the widget else will be deleted
+                        if not isinstance(iw, QtWidgets.QComboBox):
+                            self.tablewidgetobj.setCellWidget(itm.row(), itm.column(), iw)
+                        self._add_registered_widget_track_to_list(tr)
+                    # Delegated behavior 
+                    if isinstance(iw, QtWidgets.QComboBox):
+                        delegate = Delegate(itm.row(), itm.column(), iw, parent=self.tablewidgetobj)
+                        self.tablewidgetobj.setItemDelegateForColumn(itm.column(),delegate)
+                        iw.currentIndexChanged.connect(lambda: self._item_combobox_indexchanged(iw,track))
+                    
                     itm.setFlags(itm.flags() ^ QtCore.Qt.ItemIsEditable)
-                    # print('iw {}'.format(type(iw)))
+                    
                     if isinstance(iw, QtWidgets.QPushButton):
-                        # print('Connected Buton')
-                        iw.clicked.connect(lambda: self._item_button_clicked(track))
-                    elif isinstance(iw, QtWidgets.QComboBox):
-                        iw.currentIndexChanged.connect(lambda: self._item_combobox_indexchanged(iw, track=track))
+                        iw.clicked.connect(lambda: self._item_button_clicked(track))   
                     elif isinstance(iw, QtWidgets.QCheckBox):
                         iw.stateChanged.connect(lambda: self._item_checkbox_checked(iw, track))
                     elif isinstance(iw, QtWidgets.QLabel):
@@ -475,12 +533,10 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                             self.tablewidgetobj.resizeColumnToContents(itm.column())
                             self.tablewidgetobj.resizeRowToContents(itm.row())
                     break
-        except (AttributeError, TypeError):
-            log.error("Setting widget_list to item")
-
-        # except Exception as e:
-        #    print("_set_widget_to_item error--->", e)
-        #
+        except RuntimeError as err:
+            log.error("RuntimeError setting widget_list to item: %s",err)
+        except (AttributeError, TypeError)  as err:
+            log.error("Setting widget_list to item: %s",err)
 
     def _set_icon_to_item(self, itm: QtWidgets.QTableWidgetItem):
         """Sets icon in icon_dict to item
@@ -710,6 +766,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             for tr in track:
                 if parent is None:
                     log.debug('get_item_from_track if the size -> {}'.format(modelobj.rowCount()))
+                    itm = None
                     for iii in range(modelobj.rowCount()):
                         itmindex = modelobj.index(iii, col_pos)
                         itm = self.tablewidgetobj.itemFromIndex(itmindex)
@@ -721,6 +778,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                         break  # item none or not found
                 else:
                     log.info('get_item_from_track else the size -> {}'.format(modelobj.rowCount(parent)))
+                    itm = None
                     for iii in range(modelobj.rowCount(parent)):
                         itmindex = modelobj.index(iii, col_pos, parent)
                         #itm = modelobj.itemFromIndex(itmindex)
@@ -750,7 +808,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             if tr != itm.text():
                 return False
             return True
-        except AttributeError:
+        except (UnboundLocalError,AttributeError):
             return False
 
     def _is_item_text(self, itm, tr):
@@ -759,7 +817,7 @@ class TableWidgetFunctions(QtWidgets.QWidget):
             if tr == itm.text():
                 return False
             return True
-        except AttributeError:
+        except (UnboundLocalError,AttributeError):
             return False
 
     def _item_data_changed(self, index: QtCore.QModelIndex, val: any):
@@ -1408,3 +1466,51 @@ class TableWidgetFunctions(QtWidgets.QWidget):
                     maxdepth = max(maxdepth, adepth)
                 maxdepth = max(maxdepth, depth)
         return maxdepth
+
+
+class Delegate(QtWidgets.QStyledItemDelegate):
+    def __init__(
+        self,
+        itm_row: int,
+        itm_col: int,
+        widget_obj: QtWidgets.QWidget,
+        /,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.widget_obj = widget_obj
+        self.itm_row = itm_row
+        self.itm_col = itm_col
+    
+    def createEditor(self, parent, option, index):
+        editor = None
+        if isinstance(self.widget_obj, QtWidgets.QComboBox):
+            self.widget_obj.setParent(parent)
+            editor = QtWidgets.QComboBox(parent)
+            index_cb= self.widget_obj.currentIndex()
+            current_text=self.widget_obj.itemText(index_cb)
+            editor.currentTextChanged.connect(self.handle_commit_close_editor)
+            editor.setCurrentText(current_text)
+        return editor
+
+    def setEditorData(self, editor, index):
+        if index.column() == self.itm_col and index.row() == self.itm_row:
+            if isinstance(editor, QtWidgets.QComboBox):
+                option = index.data()
+                editor.clear()
+                all_items = [self.widget_obj.itemText(iii) for iii in range(self.widget_obj.count())]
+                editor.addItems(all_items)
+                editor.setCurrentText(option)
+
+    def setModelData(self, editor, model, index):
+        if index.column() == self.itm_col and index.row() == self.itm_row:
+            option = editor.currentText()
+            model.setData(index, option, QtCore.Qt.DisplayRole)
+
+    def handle_commit_close_editor(self):
+        editor = self.sender()
+        if isinstance(editor, QtWidgets.QWidget):
+            self.commitData.emit(editor)
+            self.closeEditor.emit(editor)
+
