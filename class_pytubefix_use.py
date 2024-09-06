@@ -82,7 +82,7 @@ class use_pytubefix(QWidget):
             try:
                 self.download_start.emit(url,yt.title)
                 if not filename:
-                    filename=self.clean_filename(yt.title,'áéíóúüöäÜÖÄÁÉÍÓÚçÇabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -')
+                    filename=self.clean_filename(yt.title,'áéíóúüöäÜÖÄÁÉÍÓÚçÇabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -')+'.mp4'
                 ys.download(output_path = output_path,
                     filename = filename,
                     filename_prefix = filename_prefix,
@@ -132,7 +132,7 @@ class use_pytubefix(QWidget):
                 try:
                     self.download_start.emit(url,yt.title)
                     ys.download(output_path = output_path,
-                        filename = filename,
+                        filename = filename + '.mp4',
                         filename_prefix = filename_prefix,
                         skip_existing = skip_existing,
                         timeout = timeout,
@@ -147,11 +147,12 @@ class use_pytubefix(QWidget):
                     if len(selected_resolution)==2:
                         video_stream = yt.streams.get_by_itag(selected_resolution[0])
                         audio_stream = yt.streams.get_by_itag(selected_resolution[1])
+                        res="_"+str(video_stream.resolution)+"_"+str(audio_stream.bitrate)
                         filename_prefix_txt=""
                         if filename_prefix:
                             filename_prefix_txt=filename_prefix
                         # filename=self.cfd.extract_filename(filename,False)
-                        complete_output_path=output_path+os.sep+filename_prefix_txt+filename+".mp4"
+                        complete_output_path=output_path+os.sep+filename_prefix_txt+filename+res+".mp4"
                         self.download_start.emit(url,yt.title)
                         if os.path.exists(complete_output_path) and skip_existing:
                             self.to_log.emit("Already existing: {}".format(complete_output_path))

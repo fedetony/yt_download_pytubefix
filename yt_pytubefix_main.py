@@ -894,10 +894,13 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             for item, item_value in self.url_struct[url_id].items():
                 if item not in ["DL Enable"]:
                     results_dict.update({item: item_value})
-            self.url_struct_results.update({url_id: results_dict})
-            self.url_id_counter = self.url_id_counter + 1
+            results_id_list=self.a_ufun.get_dict_key_list(self.url_struct_results)
+            results_url_id=self.a_ufun.get_unique_id(url_id,results_id_list,"URL")
+            self.url_struct_results.update({results_url_id: results_dict})
+            # self.url_id_counter = self.url_id_counter + 1
         self.twf2.set_items_icons()
-        self._add_remove_downloading_icons_(url_id_list,True,self.icon_main,2)
+        results_id_list=self.a_ufun.get_dict_key_list(self.url_struct_results)
+        self._add_remove_downloading_icons_(results_id_list,True,self.icon_main,2)
         self._main_refresh_tablewidget2()
 
     def _main_refresh_tablewidget2(self):
