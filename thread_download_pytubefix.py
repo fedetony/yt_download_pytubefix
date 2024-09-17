@@ -198,14 +198,17 @@ class ThreadQueueDownloadStream(threading.Thread):
         self.number_of_files_downloaded = self.number_of_files_downloaded + 1
         log.info("Download finished: %s \nURL: %s", title, url)
 
-    def _get_items_from_resolution_txt(self,res_text:str) -> tuple:
+    def _get_itags_from_resolution_txt(self,res_text:str) -> tuple:
         """Extracts the initial numbers from the given text format.
 
         Args:
-            text (str): The text format containing numbers.
+            res_text (str): The text format containing numbers.
+            from '[ v_itag, v_res, (v_codec,a_codec)]' or
+            '[(v_itag, a_itag),(v_res, a_bitrate),(v_codec,a_codec)]'
 
         Returns:
-            tuple: A tuple containing the extracted numbers.
+            tuple: A tuple containing the itag numbers.
+            (v_itag, a_itag) or (v_itag,).
         """
         # Remove leading and trailing parentheses and quotes
         text = res_text.strip("[]\"'")
@@ -254,7 +257,7 @@ class ThreadQueueDownloadStream(threading.Thread):
                         mp3=self.actual_url_properties["mp3"],
                     )
                 else:
-                    items_resolution=self._get_items_from_resolution_txt(self.actual_url_properties["selected_resolution"])
+                    items_resolution=self._get_itags_from_resolution_txt(self.actual_url_properties["selected_resolution"])
                     self.ptf.download_video_selected_quality(
                         url=self.actual_url_properties["URL"],
                         output_path=self.actual_url_properties["output_path"],

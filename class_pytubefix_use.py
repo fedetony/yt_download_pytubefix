@@ -115,6 +115,20 @@ class use_pytubefix(QWidget):
                 mp3: bool = False,
                 selected_resolution: tuple = ()
                 ):    
+        """Downloads a audio or a video with selected quality
+
+        Args:
+            url (str): url of yt video
+            output_path (str): path
+            filename (str, optional): filename. Defaults to None.
+            filename_prefix (str, optional): prefix. Defaults to None.
+            skip_existing (bool, optional): if file exists skip. Defaults to True.
+            timeout (int, optional): timeout for download. Defaults to None.
+            max_retries (int, optional): retries. Defaults to 0.
+            mp3 (bool, optional): if mp3. Defaults to False.
+            selected_resolution (tuple, optional): resolution string (v_itag, a_itag) or (v_itag,)  
+                        Defaults to ().
+        """
         if len(selected_resolution)==0:
             self.to_log.emit(f"No resolution given, setting max resolution!")
             self.download_video_best_quality(url, output_path,filename,filename_prefix,skip_existing,timeout,max_retries,mp3) 
@@ -148,7 +162,7 @@ class use_pytubefix(QWidget):
                         video_stream = yt.streams.get_by_itag(selected_resolution[0])
                         audio_stream = yt.streams.get_by_itag(selected_resolution[1])
                         res="_"+str(video_stream.resolution)+"_"+str(audio_stream.bitrate)
-                        filename_prefix_txt=""
+                        filename_prefix_txt = ""
                         if filename_prefix:
                             filename_prefix_txt=filename_prefix
                         # filename=self.cfd.extract_filename(filename,False)
@@ -172,8 +186,8 @@ class use_pytubefix(QWidget):
                             timeout = timeout,
                             max_retries = max_retries,
                             mp3 = mp3)
-                        vid_complete_output_path=output_path+os.sep+filename_prefix_txt+"vid_"+filename+".mp4"
-                        aud_complete_output_path=output_path+os.sep+filename_prefix_txt+"aud_"+filename+".mp4"
+                        vid_complete_output_path = output_path + os.sep + filename_prefix_txt + "vid_" + filename + ".mp4"
+                        aud_complete_output_path = output_path + os.sep + filename_prefix_txt + "aud_" + filename + ".mp4"
                         self.to_log.emit(f"PyTubefix Downloaded video and audio file for: {yt.title}")
                         video_clip = VideoFileClip(vid_complete_output_path)
                         audio_clip = AudioFileClip(aud_complete_output_path)
@@ -189,8 +203,9 @@ class use_pytubefix(QWidget):
                         self.to_log.emit(f"PyTubefix Downloading {selected_resolution}: {yt.title}")
                         ys = yt.streams.get_by_itag(selected_resolution[0])
                         self.download_start.emit(url,yt.title)
+                        res = "_" + str(ys.resolution)
                         ys.download(output_path = output_path,
-                            filename = filename,
+                            filename = filename + res + ".mp4",
                             filename_prefix = filename_prefix,
                             skip_existing = skip_existing,
                             timeout = timeout,

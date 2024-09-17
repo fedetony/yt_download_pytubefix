@@ -215,10 +215,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.twf.signal_data_change[list, str, str, str].connect(self._table_widget_data_changed)
         self.twf.signal_item_button_right_clicked[list, QtCore.QPoint].connect(self._table_item_right_clicked)
         self.twf.signal_item_combobox_currentindexchanged[int, str, list].connect(self._table_item_comboboxindexchanged)
-        # self.icons_dict={'Plots':self.icon_main}
-
-        # self.tvf.Expand_to_Depth(1)
-        # self.tvf.set_Icons(self.icons_dict)
+        
         self.twf2 = class_table_widget_functions.TableWidgetFunctions(
             self.tableWidget_results, self.url_struct_results, self.url_struct_results_mask, None, []
         )
@@ -226,18 +223,8 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         # self.twf2.signal_data_change[list, str, str, str].connect(self._table_widget_data_changed)
         # self.twf2.signal_item_button_right_clicked[list, QtCore.QPoint].connect(self._table_item_right_clicked)
 
-        # self.icons_dict={'Plots':self.icon_main}
-
-        # self.tvf.Expand_to_Depth(1)
-        # self.tvf.set_Icons(self.icons_dict)
-
         # --------------use_pytubefix
         self.ptf = class_pytubefix_use.use_pytubefix()
-        # self.st = class_signal_tracker.SignalTracker()
-        # self.st.signal_th2m_to_log[str].connect(self._pytubefix_log)
-        # self.st.signal_th2m_download_start[str, str].connect(self._pytubefix_download_start)
-        # self.st.signal_th2m_download_end[str, str].connect(self._pytubefix_download_end)
-        # self.st.signal_th2m_on_progress[str, float].connect(self._pytubefix_download_progress)
 
         # -----------Splitter
         # self._set_splitter_pos(400,1/3) #initial position
@@ -569,7 +556,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.item_menu = QtWidgets.QMenu()
         menu_item01 = self._add_action_to_menu(f"Toggle {track}", False, self.icon_toggle)
         self.item_menu.addSeparator()
-        # menu_item10 = self._add_action_to_menu(f"URL info {track[0]}", True, self.icon_info)
+        menu_item10 = self._add_action_to_menu(f"Set Filename {track[0]}", True, self.icon_save_file)
         menu_item11 = self._add_action_to_menu(f"Set Download Path {id_key_list}", True, self.icon_download_folder)
         self.item_menu.addSeparator()
         # menu_item20 = self.item_menu.addAction(f"Download {track[0]}")
@@ -582,6 +569,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         menu_item61 = self._add_action_to_menu("Remove All", True, self.icon_clear)
 
         if len(id_key_list) == 0:
+            menu_item10.setEnabled(False)
             menu_item11.setEnabled(False)
             menu_item21.setEnabled(False)
             menu_item40.setEnabled(False)
@@ -597,6 +585,9 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             menu_item01.triggered.connect(lambda: self._toggle_bool_item(track))
 
         if len(id_key_list) > 0:
+            menu_item10.setEnabled(True)
+            menu_item10.triggered.connect(lambda: self._select_special_filename_path(track))
+
             menu_item11.setEnabled(True)
             menu_item11.triggered.connect(lambda: self._select_special_download_path(id_key_list))
 
@@ -938,6 +929,41 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             thread_index_url_id_list.append((thread_index, url_id))
         return thread_index_url_id_list
 
+    def _select_special_filename_path(self, track: list):
+        """Sets a different download path than the Default path"""
+        self.a_dialog.set_filter("mp4","All Files (*);;Video Files (*.mp4)","Video Files (*.mp4)",False)
+        url_id=track[0]
+        if self.url_struct[url_id]["Download Path"]:
+            path_def=self.url_struct[url_id]["Download Path"]
+        else:
+            path_def=self.download_path
+        self.a_dialog.set_default_dir(path_def)
+        filenamepath = self.a_dialog.save_file_dialog("mp4")
+        if filenamepath:
+            dl_dir = self.a_dialog.extract_path(filenamepath,True)
+            filename = self.a_dialog.extract_filename(filenamepath,True)
+            download_path = ""
+            if len(dl_dir) > 0:
+                if self.download_path != dl_dir:
+                    download_path = dl_dir
+                else:
+                    download_path = ""
+                    log.info("Same path as default!")
+                log.info("Setting to %s Download dir: %s", url_id, dl_dir)
+                track = [url_id, "Download Path"]
+                self.twf.set_tracked_value_to_dict(track, str(download_path), self.url_struct, "", False)
+            log.info("Setting to %s File Name: %s", url_id, filename)
+            track = [url_id, "File Name"]
+            self.twf.set_tracked_value_to_dict(track, str(filename), self.url_struct, "", False)    
+                    # mask returns it to ""
+                    # self.twf.set_value_and_trigger_data_change(track,str(download_path),str(str),"")
+            # Refresh and update
+            self._main_refresh_tablewidget()
+            self._update_shared_struct_options()
+        else:
+            # restore default path
+            self.a_dialog.set_default_dir(self.download_path)   
+
     def _select_special_download_path(self, id_key_list: list):
         """Sets a different download path than the Default path"""
         dl_dir = self.a_dialog.open_directory_dialog(caption="Select Download directory", directory=self.download_path)
@@ -1074,8 +1100,8 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         if is_itm_bool:
             log.debug("Toggle Triggered %s", track)
             value_of_rc = self.twf.check_restrictions.set_type_to_value(value_of_rc, str(bool), "")
-            self.twf.set_value_and_trigger_data_change(track, not value_of_rc, "")
-        self._main_refresh_tablewidget()
+            self.twf.set_value_and_trigger_data_change(track, not value_of_rc, str(bool),"")
+        self._main_refresh_tablewidget() 
 
     def _get_id_key_list_from_selection(self) -> tuple[list, list]:
         """Gets a list of keys of the items selected
@@ -1101,9 +1127,23 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                 track_list.append(track)
         return id_key_list, track_list
 
+    def _enable_disable_obj_on_process(self,enable:bool):
+        """Enables disables objects while processing actions so user can not make UI
+
+        Args:
+            enable (bool): Enabled True /disabled False
+        """
+        self.pushButton_url.setEnabled(enable)
+        self.groupBox.setEnabled(enable)
+        self.actionAbout.setEnabled(enable)
+        self.actionOpen_URL_list.setEnabled(enable)
+        self.actionSet_Path.setEnabled(enable)
+        self.actionSave_URL_list.setEnabled(enable)
+
     def _pushbutton_url_pressed(self):
         """On pressed url button add to list
         """
+        self._enable_disable_obj_on_process(False)
         # fast regex check
         the_link = self.lineEdit_url.text()
         the_link = the_link.strip()
@@ -1116,6 +1156,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         elif self._check_url_is_valid(the_link):
             # passed checks
             self.add_item_to_url_struct(the_link)
+        self._enable_disable_obj_on_process(True)
 
     def _check_url_is_valid(self, url: str) -> bool:
         """Is a pytubefix valid url, checks regex and exists
@@ -1248,22 +1289,27 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         """Adds to strcut the input dictionaries"""
         newstruct = {}
         a_struct = self.a_ufun.recursive_copy_dict(inc_struct)
+        self._enable_disable_obj_on_process(False)
         try:
             for key in a_struct:
                 url_id = self.a_ufun.get_unique_id("URL0", self.get_id_list(), "URL")
-                results_dict = {}
-                is_valid, _ = self.ptf.is_yt_valid_url(a_struct[key]["URL"])
-                if is_valid:
+                is_valid, what_is = self.ptf.is_yt_valid_url(a_struct[key]["URL"])
+                if is_valid and what_is == 'video':
+                    # this sets the actual structure
+                    self.add_item_to_url_struct(a_struct[key]["URL"])
+                    # set single items of the structure
                     for item, item_value in a_struct[key].items():
-                        results_dict.update({item: item_value})
-                    self.url_struct.update({url_id: results_dict})
-                    self.url_id_counter = self.url_id_counter + 1
+                        self.url_struct[url_id][item]= item_value
+                    #self.url_id_counter = self.url_id_counter + 1
+                if is_valid and what_is in ['channel','playlist']:
+                    self.add_item_to_url_struct(a_struct[key]["URL"])
 
             self._update_shared_struct_options()
             self._main_refresh_tablewidget()
 
-        except (AttributeError, KeyError, IndexError):
-            log.error("Dictionary has incorrect format!")
+        except (AttributeError, KeyError, IndexError) as eee:
+            log.error("Dictionary has incorrect format: %s",eee)
+        self._enable_disable_obj_on_process(True)
         return newstruct
 
     def _main_refresh_tablewidget(self):
@@ -1352,6 +1398,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.groupBox.setTitle("List of URLs:")
         self.groupBox_2.setTitle("Processed URLs:")
         self.label_DownloadPath.setText(f"Downloading to: {self.download_path}")
+        self.pushButton_url.setText("add")
         self.pushButton_2.setText("Explorer")
         self.pushButton_5.setText("Clear Processed URLs")
         self.pushButton_4.setText("Download all")
