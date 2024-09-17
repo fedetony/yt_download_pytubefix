@@ -1,6 +1,6 @@
 # Simple GUI for pytubefix
 ---------------------------------------
-![Python Logo](https://github.com/fedetony/PP_Gui/blob/main/img/Data-Scatter-Plot-icon32.png "PP_Gui V1.0beta by FG")
+![Python Logo](https://github.com/fedetony/yt_download_pytubefix/blob/master/img/main_icon48.png "GUI pytubefix V1.0beta by FG")
  This is a simple GUI to download videos from yt using pytubefix, for latest state check [my github][wp] account. Please contribute with bug reports, or enhancements you would like to have.
 
 Features
@@ -23,7 +23,7 @@ To do:
 
 ---------------------------------------------------------------------------------------
 
-![Python Logo](https://github.com/fedetony/PP_Gui/blob/main/img/Data-Scatter-Plot-icon32.png "PP_Gui V1.0beta by FG") If you like my work consider [supporting me!][sp]
+![Python Logo](https://github.com/fedetony/yt_download_pytubefix/blob/master/img/main_icon48.png "GUI pytubefix V1.0beta by FG") If you like my work consider [supporting me!][sp]
 
 G1(junas) Cesium: D9CFSvUHQDJJ4iFExVU4fTMAidADV8kedabeqtV6o3CS
 
