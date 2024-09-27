@@ -1034,14 +1034,15 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         """
         ys_p,_=self.ptf.get_streams_available(url)
         resoulutions=[]
-        for ppp in ys_p:
-            #print("PRog:",ppp)
-            i_tag=self.a_ufun.extract_value("itag=",str(ppp))
-            c_aud=self.a_ufun.extract_value("acodec=",str(ppp))
-            c_vid=self.a_ufun.extract_value("vcodec=",str(ppp))
-            r_vid=self.a_ufun.extract_value("res=",str(ppp))
-            if r_vid and r_vid not in resoulutions:
-                resoulutions.append([i_tag,r_vid,(c_vid,c_aud)])
+        if ys_p:
+            for ppp in ys_p:
+                #print("PRog:",ppp)
+                i_tag=self.a_ufun.extract_value("itag=",str(ppp))
+                c_aud=self.a_ufun.extract_value("acodec=",str(ppp))
+                c_vid=self.a_ufun.extract_value("vcodec=",str(ppp))
+                r_vid=self.a_ufun.extract_value("res=",str(ppp))
+                if r_vid and r_vid not in resoulutions:
+                    resoulutions.append([i_tag,r_vid,(c_vid,c_aud)])
         return resoulutions
     
     def _get_available_resolutions_adaptive(self,url:str) ->list:
@@ -1055,16 +1056,17 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         _, ys_a=self.ptf.get_streams_available(url)
         resoulutions_vid=[]
         resoulutions_aud=[]
-        for nnn,ppp in enumerate(ys_a):
-            i_tag=self.a_ufun.extract_value("itag=",str(ppp))
-            r_aud=self.a_ufun.extract_value("abr=",str(ppp))
-            if r_aud and r_aud not in resoulutions_aud:
-                c_aud=self.a_ufun.extract_value("acodec=",str(ppp))
-                resoulutions_aud.append([i_tag,r_aud,c_aud])
-            r_vid=self.a_ufun.extract_value("res=",str(ppp))
-            if r_vid and r_vid not in resoulutions_vid:
-                c_vid=self.a_ufun.extract_value("vcodec=",str(ppp))
-                resoulutions_vid.append([i_tag,r_vid,c_vid])
+        if ys_a:
+            for nnn,ppp in enumerate(ys_a):
+                i_tag=self.a_ufun.extract_value("itag=",str(ppp))
+                r_aud=self.a_ufun.extract_value("abr=",str(ppp))
+                if r_aud and r_aud not in resoulutions_aud:
+                    c_aud=self.a_ufun.extract_value("acodec=",str(ppp))
+                    resoulutions_aud.append([i_tag,r_aud,c_aud])
+                r_vid=self.a_ufun.extract_value("res=",str(ppp))
+                if r_vid and r_vid not in resoulutions_vid:
+                    c_vid=self.a_ufun.extract_value("vcodec=",str(ppp))
+                    resoulutions_vid.append([i_tag,r_vid,c_vid])
         resoulutions=[]
         for vid_res in resoulutions_vid:
             for aud_res in resoulutions_aud:

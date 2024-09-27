@@ -37,9 +37,9 @@ class use_pytubefix(QWidget):
             filesize=1
         self.on_progress.emit([bytes_received,filesize])
     
-    def get_yt_video_from_url(self,url):
+    def get_yt_video_from_url(self,url,client='WEB_CREATOR'):
         try:
-            yt = YouTube(url, on_progress_callback = self._on_progress)
+            yt = YouTube(url, client=client, on_progress_callback = self._on_progress)
         except Exception as eee:
             #print(eee)
             self.to_log.emit("Error Video: {}".format(eee))
@@ -102,8 +102,14 @@ class use_pytubefix(QWidget):
         ys_progressive=None
         ys_adaptive=None
         if yt:
-            ys_progressive=yt.streams.filter(progressive=True,file_extension='mp4').desc()
-            ys_adaptive = yt.streams.filter(adaptive=True,file_extension='mp4').desc()
+            try:
+                ys_progressive=yt.streams.filter(progressive=True,file_extension='mp4').desc()
+            except:
+                ys_progressive=None
+            try:
+                ys_adaptive = yt.streams.filter(adaptive=True,file_extension='mp4').desc()
+            except:
+                ys_adaptive=None
         return ys_progressive,ys_adaptive
 
     def download_video_selected_quality(self, url: str, output_path: str,
@@ -420,6 +426,7 @@ class use_pytubefix(QWidget):
         patterns = [
             #r"(?:v=|\/)([0-9A-Za-z_-]{11}).*", -> vid and playlist
             #r"^https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([0-9A-Za-z_-]{11})|https?:\/\/(?:www\.)?youtu\.be\/([0-9A-Za-z_-]{11})", -> vid and playlist
+            r'^https?:\/\/(?:www\.)?youtube\.com\/live\/([0-9A-Za-z_-]{11})',
             r"^https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([0-9A-Za-z_-]{11})(?:&[^l]|$)|https?:\/\/(?:www\.)?youtu\.be\/([0-9A-Za-z_-]{11})",
         ]
         for pattern in patterns:
@@ -485,19 +492,19 @@ class use_pytubefix(QWidget):
                     #print(eee)
                     self.to_log.emit("Error Downloading: {}".format(eee))
     
-    def download_mp3_authentication(self,url = "url"):
+    def download_mp3_authentication(self,url = "url", client='WEB_CREATOR'):
     
         # if you want to add authentication
-        yt = YouTube(url, use_oauth=True, allow_oauth_cache=True, on_progress_callback = on_progress)
+        yt = YouTube(url, client=client, use_oauth=True, allow_oauth_cache=True, on_progress_callback = on_progress)
                 
         ys = yt.streams.get_audio_only()
 
         ys.download(mp3=True) # you will only get the request to authenticate once you download
     
-    def view_subtitiles(self,url):
+    def view_subtitiles(self,url,client='WEB_CREATOR'):
         #Subtitle/Caption Tracks:
         #viewing available subtitles:
-        yt = YouTube(url)
+        yt = YouTube(url,client=client)
         subtitles = yt.captions
         self.to_log.emit(f"{subtitles}")
     
