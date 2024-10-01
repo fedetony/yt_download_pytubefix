@@ -29,6 +29,7 @@ import yaml
 import requests
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from importlib.metadata import version
 
 # from genericpath import isfile
 # from operator import index
@@ -1422,6 +1423,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             + __creationdate__
             + '</p> <p style="color:black;">pytubefix: '
             + __pytubefix__
+            + " V:" + str(version('pytubefix'))
             + "</p>"
         )
         # msgbox = QMessageBox.about(main_window,title,amsg)
