@@ -12,7 +12,15 @@ import subprocess
 from PyQt5.QtWidgets import QFileDialog, QWidget, QMessageBox
 from PyQt5.QtWidgets import QDialog, QStackedWidget, QListView, QLineEdit
 
-FILEBROWSER_PATH = os.path.join(os.getenv("WINDIR"), "explorer.exe")
+def get_file_manager_path():
+    if os.name == 'nt':  # Windows
+        return  os.path.join(os.getenv("WINDIR"), "explorer.exe") # "/c/Windows/Shell/explorer.exe"
+    elif os.name == 'posix' or os.name == 'linux':  # Linux/MacOS
+        return "/usr/bin/xdg-open"
+    else:
+        raise OSError(f"Unsupported OS: {os.name}")
+
+FILEBROWSER_PATH = get_file_manager_path()
 
 
 class Dialogs(QWidget):
