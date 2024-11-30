@@ -42,6 +42,10 @@ class use_pytubefix(QWidget):
 
     def get_yt_video_from_url(self,url,client='WEB'): #'WEB_CREATOR'):
         try:
+            #if client=='WEB':
+            #    yt = YouTube(url, client=client, use_po_token=True, on_progress_callback = self._on_progress)
+            #else:
+            #    yt = YouTube(url, client=client, on_progress_callback = self._on_progress)
             yt = YouTube(url, client=client, on_progress_callback = self._on_progress)
         except Exception as eee:
             #print(eee)
@@ -92,7 +96,7 @@ class use_pytubefix(QWidget):
                     skip_existing = skip_existing,
                     timeout = timeout,
                     max_retries = max_retries,
-                    mp3 = mp3)
+                    )#mp3 = mp3)
                 self.download_end.emit(url,yt.title)
             except Exception as eee:
                 #print(eee)
@@ -160,7 +164,7 @@ class use_pytubefix(QWidget):
                         skip_existing = skip_existing,
                         timeout = timeout,
                         max_retries = max_retries,
-                        mp3 = mp3)
+                        )#mp3 = mp3)
                     self.download_end.emit(url,yt.title)
                 except Exception as eee:
                     #print(eee)
@@ -187,14 +191,14 @@ class use_pytubefix(QWidget):
                             skip_existing = skip_existing,
                             timeout = timeout,
                             max_retries = max_retries,
-                            mp3 = mp3)
+                            )#mp3 = mp3)
                         audio_stream.download(output_path = output_path,
                             filename = "aud_"+filename+".mp4",
                             filename_prefix = filename_prefix,
                             skip_existing = skip_existing,
                             timeout = timeout,
                             max_retries = max_retries,
-                            mp3 = mp3)
+                            )#mp3 = mp3)
                         vid_complete_output_path = output_path + os.sep + filename_prefix_txt + "vid_" + filename + ".mp4"
                         aud_complete_output_path = output_path + os.sep + filename_prefix_txt + "aud_" + filename + ".mp4"
                         self.to_log.emit(f"PyTubefix Downloaded video and audio file for: {yt.title}")
@@ -219,7 +223,7 @@ class use_pytubefix(QWidget):
                             skip_existing = skip_existing,
                             timeout = timeout,
                             max_retries = max_retries,
-                            mp3 = mp3)
+                            )#mp3 = mp3)
                         self.download_end.emit(url,yt.title)
                 except Exception as eee:
                     #print(eee)
@@ -248,7 +252,7 @@ class use_pytubefix(QWidget):
                         skip_existing = skip_existing,
                         timeout = timeout,
                         max_retries = max_retries,
-                        mp3 = mp3)
+                        )#mp3 = mp3)
                     self.download_end.emit(url,yt.title)
                 except Exception as eee:
                     #print(eee)
@@ -273,14 +277,14 @@ class use_pytubefix(QWidget):
                         skip_existing = skip_existing,
                         timeout = timeout,
                         max_retries = max_retries,
-                        mp3 = mp3)
+                        )#mp3 = mp3)
                     audio_stream.download(output_path = output_path,
                         filename = "aud_"+filename+".mp4",
                         filename_prefix = filename_prefix,
                         skip_existing = skip_existing,
                         timeout = timeout,
                         max_retries = max_retries,
-                        mp3 = mp3)
+                        )#mp3 = mp3)
                     vid_complete_output_path=output_path+os.sep+filename_prefix_txt+"vid_"+filename+".mp4"
                     aud_complete_output_path=output_path+os.sep+filename_prefix_txt+"aud_"+filename+".mp4"
                     self.to_log.emit(f"PyTubefix Downloaded video and audio file for: {yt.title}")
@@ -489,7 +493,7 @@ class use_pytubefix(QWidget):
                         skip_existing = skip_existing,
                         timeout = timeout,
                         max_retries = max_retries,
-                        mp3 = mp3)
+                        )#mp3 = mp3)
                     self.download_end.emit(str(video.watch_url),video.title)
                 except Exception as eee:
                     #print(eee)
@@ -502,7 +506,7 @@ class use_pytubefix(QWidget):
                 
         ys = yt.streams.get_audio_only()
 
-        ys.download(mp3=True) # you will only get the request to authenticate once you download
+        ys.download() #mp3=True) # you will only get the request to authenticate once you download
     
     def view_subtitiles(self,url,client='WEB_CREATOR'):
         #Subtitle/Caption Tracks:
@@ -581,7 +585,7 @@ class use_pytubefix(QWidget):
                         skip_existing = skip_existing,
                         timeout = timeout,
                         max_retries = max_retries,
-                        mp3 = mp3)
+                        )#mp3 = mp3)
                     self.download_end.emit(str(video.watch_url),video.title)
                 except Exception as eee:
                     #print(eee)
