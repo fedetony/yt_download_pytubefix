@@ -37,7 +37,10 @@ class use_pytubefix(QWidget):
             filesize=1
         self.on_progress.emit([bytes_received,filesize])
     
-    def get_yt_video_from_url(self,url,client='WEB_CREATOR'):
+    #clients: WEB, WEB_EMBED, WEB_MUSIC, WEB_CREATOR, WEB_SAFARI, ANDROID, ANDROID_MUSIC, ANDROID_CREATOR, ANDROID_VR, ANDROID_PRODUCER
+    # , ANDROID_TESTSUITE, IOS, IOS_MUSIC, IOS_CREATOR, MWEB, TV_EMBED, MEDIA_CONNECT
+
+    def get_yt_video_from_url(self,url,client='WEB'): #'WEB_CREATOR'):
         try:
             yt = YouTube(url, client=client, on_progress_callback = self._on_progress)
         except Exception as eee:
