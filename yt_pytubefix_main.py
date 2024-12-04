@@ -42,8 +42,10 @@ import class_table_widget_functions
 import class_pytubefix_use
 import class_signal_tracker
 import class_useful_functions
+import class_log_dialog
 import thread_download_pytubefix
 import yt_pytubefix_gui
+#import yt_pytubefix_log_dialog
 
 # import json
 # import re
@@ -115,6 +117,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.icon_main = None
         self.icon_main = None
         self.icon_plus = None
+        self.icon_log = None
         self.icon_explorer = None
         self.icon_open_file = None
         self.icon_save_file = None
@@ -243,6 +246,11 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         if os.path.exists(path_to_file):
             self.icon_main_pixmap = QtGui.QPixmap(path_to_file)
             self.icon_main = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+        
+        path_to_file = image_path + "document_icon.png"
+        if os.path.exists(path_to_file):
+            self.icon_log = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+            self.actionShow_Log.setIcon(self.icon_log)
 
         path_to_file = image_path + "plus_icon.png"
         if os.path.exists(path_to_file):
@@ -507,6 +515,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.actionOpen_URL_list.triggered.connect(self.open_url_list)
         self.actionSave_URL_list.triggered.connect(self.save_url_list)
         self.actionSet_Path.triggered.connect(self.set_download_path)
+        self.actionShow_Log.triggered.connect(self._open_log_dialog)
         self.pushButton_url.pressed.connect(self._pushbutton_url_pressed)
         self.pushButton_2.pressed.connect(self._open_windows_explorer)
         self.pushButton_5.pressed.connect(self._clear_table_widget_2)
@@ -516,6 +525,25 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         # right click menu
 
         self.tableWidget_url.customContextMenuRequested.connect(self._table_item_right_clicked)
+
+    def _open_log_dialog(self):
+        path_to_file=LOG_PATH+os.sep+'__yt_pytubefix_gui__.log'
+        self.log_dia = class_log_dialog.log_dialog(path_to_file,self.icon_log)
+        self.logTextBox = class_log_dialog.QTextEditLogger(self.log_dia.ld_ui.textEdit)
+        # You can format what is printed to text box
+        self.logTextBox.setFormatter(file_formatter)
+        self.logTextBox.setLevel(logging.INFO)#getattr(logging,self.log_dia.log_level))
+        logging.getLogger().addHandler(self.logTextBox)
+        self.log_dia.st.signal_ld_logging_level[str].connect(self._set_new_logging_level_from_dialog)
+        self.log_dia.ld_ui.pushButton_log_clear.setIcon(self.icon_clear)
+
+
+    def _set_new_logging_level_from_dialog(self,text):
+        print(text)
+        self.log_dia.write_file_to_log(self.log_dia.pathandfile)
+        #self.logTextBox.setLevel(getattr(logging,self.log_dia.log_level))
+
+
 
     def _set_dl_enable(self):
         """Sets all enabled/disabled 'DL Enable'"""
@@ -1512,13 +1540,12 @@ class MyWindow(QtWidgets.QMainWindow):
         if result == QtWidgets.QMessageBox.Yes:
             # print('inside class')
             # close dialogs
-            # self.CCDialog
 
-            # try:
-            #     ui.CCDialog.quit()
-            # except Exception as e:
-            #     # log.error(e)
-            #     pass
+            try:
+                ui.log_dia.d_log_dialog.close()
+            except Exception as e:
+                # log.error(e)
+                pass
             # kill threads
             # threads_event_list is list of tuples : (kill_ev, local_st, q_dl_stream, map_list)
             print("On Close -> number of threads: ", len(ui.threads_event_list))

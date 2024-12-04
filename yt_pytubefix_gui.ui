@@ -147,6 +147,8 @@
      <string>About</string>
     </property>
     <addaction name="actionAbout"/>
+    <addaction name="separator"/>
+    <addaction name="actionShow_Log"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuAbout"/>
@@ -170,6 +172,11 @@
   <action name="actionSave_URL_list">
    <property name="text">
     <string>Save URL list</string>
+   </property>
+  </action>
+  <action name="actionShow_Log">
+   <property name="text">
+    <string>Show Log</string>
    </property>
   </action>
  </widget>

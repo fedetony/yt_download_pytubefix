@@ -119,14 +119,14 @@ class UsefulFunctions:
     
     def convert_types_to_stringsin_dict(self,dictionary,thetype):
         """
-        Filters the input dictionary for CaptionQuery objects (which are represented as dictionaries with 'Caption' key)
+        Filters the input dictionary for thetype objects 
         and returns their string representations. Handles nested dictionaries.
 
         Args:
             dictionary (dict): The input dictionary to filter.
 
         Returns:
-            list: A list of string representations of CaptionQuery objects.
+            dict: Dictionary with replaced string objects.
         """
         trans_dict={}
         for item in dictionary.items():

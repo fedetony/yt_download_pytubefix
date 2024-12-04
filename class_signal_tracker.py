@@ -33,6 +33,9 @@ class SignalTracker(QWidget):
     signal_ptf2th_on_progress = QtCore.pyqtSignal(str, float)
     signal_ptf2th_to_log = QtCore.pyqtSignal(str)
 
+    # signals from log dialog
+    signal_ld_logging_level=QtCore.pyqtSignal(str)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.__name__ = "Signal Tracker"
@@ -57,6 +60,14 @@ class SignalTracker(QWidget):
             text (str): text
         """
         self.signal_th2m_thread_log_update.emit(text)
+    
+    def send_ld_log_level(self, text: str):
+        """Emits log dialog to main the log level signal
+
+        Args:
+            text (str): text
+        """
+        self.signal_ld_logging_level.emit(text)
 
     def send_th_file_download_progress(self, num_downloaded: int, num_total: int, per: float):
         """Emits thread to main the percentage file download progress
