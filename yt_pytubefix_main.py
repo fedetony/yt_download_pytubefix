@@ -25,11 +25,14 @@ import threading
 import time
 import json
 
+import pytubefix.metadata
 import yaml
 import requests
+import datetime
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from importlib.metadata import version
+import pytubefix
 
 # from genericpath import isfile
 # from operator import index
@@ -42,7 +45,6 @@ import class_useful_functions
 import thread_download_pytubefix
 import yt_pytubefix_gui
 
-# import datetime
 # import json
 # import re
 # Setup Logger
@@ -560,7 +562,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         menu_item10 = self._add_action_to_menu(f"Set Filename {track[0]}", True, self.icon_save_file)
         menu_item11 = self._add_action_to_menu(f"Set Download Path {id_key_list}", True, self.icon_download_folder)
         self.item_menu.addSeparator()
-        # menu_item20 = self.item_menu.addAction(f"Download {track[0]}")
+        menu_item20 = self._add_action_to_menu(f"Dump info {track[0]}", True, self.icon_info)
         menu_item21 = self._add_action_to_menu(f"Download {id_key_list}", True, self.icon_download_selected)
         self.item_menu.addSeparator()
         menu_item40 = self._add_action_to_menu(f"Remove {id_key_list}", True, self.icon_minus)
@@ -572,6 +574,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         if len(id_key_list) == 0:
             menu_item10.setEnabled(False)
             menu_item11.setEnabled(False)
+            menu_item20.setEnabled(False)
             menu_item21.setEnabled(False)
             menu_item40.setEnabled(False)
             menu_item60.setEnabled(False)
@@ -597,6 +600,8 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
 
             menu_item61.triggered.connect(lambda: self._remove_url_items(self.get_id_list(), True))
 
+            menu_item20.setEnabled(True)
+            menu_item20.triggered.connect(lambda: self._dump_information(track))
             menu_item21.setEnabled(True)
             menu_item21.triggered.connect(lambda: self._download_selected_items(id_key_list))
             # Download all
@@ -929,6 +934,46 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                     break
             thread_index_url_id_list.append((thread_index, url_id))
         return thread_index_url_id_list
+
+    def _dump_information(self, track: list):
+        """Reads info from file and dumps it into a json file.
+
+        Args:
+            track (list): url track
+        """
+        filename=self.a_dialog.save_file_dialog(8)
+        if filename:
+            self._enable_disable_obj_on_process(False)
+            url_id=track[0]
+            url=self.url_struct[url_id]["URL"]
+            info_dict=self.ptf.get_url_info(url)
+            info_dict=self.a_ufun.convert_types_to_stringsin_dict(info_dict,pytubefix.CaptionQuery)
+            info_dict=self.a_ufun.convert_types_to_stringsin_dict(info_dict,pytubefix.metadata.YouTubeMetadata)
+            info_dict=self.a_ufun.convert_types_to_stringsin_dict(info_dict,datetime.datetime)
+
+            for iiinfo in info_dict:
+                print(iiinfo,"-->",type(info_dict[iiinfo]),str(info_dict[iiinfo]))
+            fn = self.a_dialog.extract_filename(filename, False) + ".json"
+            path = self.a_dialog.extract_path(filename)
+            filename = os.path.join(path, fn)
+            try:
+                # python dictionary with key value pairs
+                # create json object from dictionary
+                js = json.dumps(info_dict)
+                # open file for writing, "w"
+                with open(filename, "w", encoding="utf-8") as fff:
+                    # write json object to file
+                    fff.write(js)
+                    # close file
+                    fff.close()
+                log.info("Saved File: %s", filename)
+
+            except (PermissionError, FileExistsError, FileNotFoundError) as e:
+                log.error("Json File :%s was not saved", filename)
+                log.error(e)
+            self._enable_disable_obj_on_process(True)
+
+
 
     def _select_special_filename_path(self, track: list):
         """Sets a different download path than the Default path"""
