@@ -975,9 +975,12 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             url_id=track[0]
             url=self.url_struct[url_id]["URL"]
             info_dict=self.ptf.get_url_info(url)
+            info_dict=self.a_ufun.convert_types_to_stringsin_dict(info_dict,pytubefix.Caption)
             info_dict=self.a_ufun.convert_types_to_stringsin_dict(info_dict,pytubefix.CaptionQuery)
+            
             info_dict=self.a_ufun.convert_types_to_stringsin_dict(info_dict,pytubefix.metadata.YouTubeMetadata)
             info_dict=self.a_ufun.convert_types_to_stringsin_dict(info_dict,datetime.datetime)
+            
 
             for iiinfo in info_dict:
                 print(iiinfo,"-->",type(info_dict[iiinfo]),str(info_dict[iiinfo]))
@@ -987,7 +990,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             try:
                 # python dictionary with key value pairs
                 # create json object from dictionary
-                js = json.dumps(info_dict)
+                js = json.dumps(info_dict,default=vars)
                 # open file for writing, "w"
                 with open(filename, "w", encoding="utf-8") as fff:
                     # write json object to file
