@@ -591,6 +591,8 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         menu_item11 = self._add_action_to_menu(f"Set Download Path {id_key_list}", True, self.icon_download_folder)
         self.item_menu.addSeparator()
         menu_item20 = self._add_action_to_menu(f"Dump info {track[0]}", True, self.icon_info)
+        menu_item22 = self._add_action_to_menu(f"Save Captions {track[0]}", True, self.icon_save_file)
+        self.item_menu.addSeparator()
         menu_item21 = self._add_action_to_menu(f"Download {id_key_list}", True, self.icon_download_selected)
         self.item_menu.addSeparator()
         menu_item40 = self._add_action_to_menu(f"Remove {id_key_list}", True, self.icon_minus)
@@ -604,6 +606,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             menu_item11.setEnabled(False)
             menu_item20.setEnabled(False)
             menu_item21.setEnabled(False)
+            menu_item22.setEnabled(False)
             menu_item40.setEnabled(False)
             menu_item60.setEnabled(False)
             menu_item61.setEnabled(False)
@@ -632,6 +635,8 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             menu_item20.triggered.connect(lambda: self._dump_information(track))
             menu_item21.setEnabled(True)
             menu_item21.triggered.connect(lambda: self._download_selected_items(id_key_list))
+            menu_item22.setEnabled(True)
+            menu_item22.triggered.connect(lambda: self._log_captions(track))
             # Download all
             menu_item60.triggered.connect(lambda: self._download_selected_items(self.get_id_list()))
 
@@ -962,6 +967,23 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                     break
             thread_index_url_id_list.append((thread_index, url_id))
         return thread_index_url_id_list
+    
+    def _log_captions(self, track: list):
+        """Prints caption to log
+
+        Args:
+            track (list): url track
+        """
+        self.a_dialog.set_default_dir(self.download_path)
+        filename=self.a_dialog.save_file_dialog(2)
+        #language='en'
+        if filename:
+            self._enable_disable_obj_on_process(False)
+            url_id=track[0]
+            url=self.url_struct[url_id]["URL"]
+            self.ptf.save_subtitles_to_file(url,filename,None) # will save all
+        self._enable_disable_obj_on_process(True)
+
 
     def _dump_information(self, track: list):
         """Reads info from file and dumps it into a json file.

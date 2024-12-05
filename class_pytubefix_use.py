@@ -2,7 +2,7 @@ import re
 import os
 from pytubefix import YouTube, Playlist, Stream
 from pytubefix.cli import on_progress
-from pytubefix import Channel
+from pytubefix import Channel,Caption
 
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import *
@@ -516,21 +516,72 @@ class use_pytubefix(QWidget):
         self.to_log.emit(f"{subtitles}")
     
     def get_subtitles(self,url,language='en'):
+        """Gets the "SubRip subtitle" captions.
+        Args:
+            url (str): url of video
+            language (str, optional): Defaults to 'en'.
+        """
         yt = self.get_yt_video_from_url(url)
         if yt:
             try:
-                caption = yt.captions.get_by_language_code(language)
-                return caption.generate_srt_captions()
+                lang_list=[]
+                lang_listtxt=[]
+                for ct in yt.caption_tracks:
+                    lang=self._extract_language_code(str(ct))
+                    if lang:
+                        lang_list.append(lang)
+                        lang_listtxt.append(lang.replace("a.",""))
+                if language in lang_listtxt:
+                    caption = yt.captions["a."+language] #get_by_language_code(language)
+                    return caption.generate_srt_captions()
             except Exception as eee:
                 #print(eee)
                 self.to_log.emit("Error Captions: {}".format(eee))       
         return ''
     
-    def save_subtitles_to_file(self,url,filename="captions.txt",language='en'):
+    def save_subtitles_to_file(self,url:str,filename:str="captions.txt",language:str='en'):
+        """Saves subtitles to a file.
+
+        Args:
+            url (str): url of video
+            filename (str, optional): Filename to be saved to. Defaults to "captions.txt".
+            language (str, optional): If NONE will find all captions available and store them in different filename with filename_XX.txt format. Defaults to 'en'.
+        """
         yt = self.get_yt_video_from_url(url)
         if yt:
-            caption = yt.captions.get_by_language_code(language)
-            caption.save_captions(filename)
+            lang_list=[]
+            lang_listtxt=[]
+            for ct in yt.caption_tracks:
+                lang=self._extract_language_code(str(ct))
+                if lang:
+                    lang_list.append(lang)
+                    lang_listtxt.append(lang.replace("a.",""))
+            if language in lang_listtxt:
+                caption = yt.captions["a."+language] #get_by_language_code(language)
+                if caption:
+                    Caption.save_captions(caption,filename)
+            elif language is None:
+                for lang in lang_list:
+                    caption = yt.captions[lang] #get_by_language_code(language)
+                    langtxt=lang.replace("a.","_")
+                    if ".txt" in filename:
+                        filename=filename.replace(".txt",str(langtxt)+".txt")
+                    else:
+                        filename=filename+str(langtxt)+".txt"
+                    if caption:
+                        Caption.save_captions(caption,filename)
+    
+    def _extract_language_code(self,txt):
+        """Define your regex pattern to extract language code """
+        #pattern = r'(?<=code=\"a\.)[\w]{2}'
+        pattern = r'(?<=code=\")[a\.\w]+'
+        
+        match = re.search(pattern, txt)
+        
+        if match:
+            return match.group()
+        else:
+            return None
     
     def get_channel_name(self,urlchannel):
         """
