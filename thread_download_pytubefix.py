@@ -57,13 +57,9 @@ class ThreadQueueDownloadStream(threading.Thread):
         self.ptf = class_pytubefix_use.use_pytubefix()
         self.st = st # class_signal_tracker.SignalTracker()
 
-        # self.st.signal_ptf2th_to_log[str].connect(self.pytubefix_log)
-        # self.st.signal_ptf2th_download_start[str, str].connect(self.pytubefix_download_start)
-        # self.st.signal_ptf2th_download_end[str, str].connect(self.pytubefix_download_end)
-        # self.st.signal_ptf2th_on_progress[list].connect(self.pytubefix_download_progress)
         self.ptf.to_log[str].connect(self.pytubefix_log)
         self.ptf.download_start[str, str].connect(self.pytubefix_download_start)
-        self.ptf.download_end[str, str].connect(self.pytubefix_download_end)
+        self.ptf.download_end[str, str, str].connect(self.pytubefix_download_end)
         self.ptf.on_progress[list].connect(self.pytubefix_download_progress)
 
         self.cycle_time = cycle_time
@@ -186,14 +182,15 @@ class ThreadQueueDownloadStream(threading.Thread):
         log.info("Download started: %s \nURL: %s", title, url)
         #log.info(self.actual_url_info)
 
-    def pytubefix_download_end(self, url: str, title: str):
+    def pytubefix_download_end(self, url: str, title: str, filename: str):
         """Receives Signal form Pytube fix when a Download is ended
 
         Args:
             url (str): url of download
             title (str): title of the download
+            filename (str): output filename
         """
-        self.st.send_download_end(f"{self.actual_url_index} " + url, title)
+        self.st.send_download_end(f"{self.actual_url_index} " + url, title, filename)
         self.event_get_next_file_to_download.set()
         self.number_of_files_downloaded = self.number_of_files_downloaded + 1
         log.info("Download finished: %s \nURL: %s", title, url)
@@ -246,7 +243,7 @@ class ThreadQueueDownloadStream(threading.Thread):
                 #print(self.actual_url_properties)
                 self.actual_url_info = self.ptf.get_url_info(a_url)
                 if not self.actual_url_properties["selected_resolution"]:
-                    self.ptf.download_video(
+                    outfn=self.ptf.download_video(
                         url=self.actual_url_properties["URL"],
                         output_path=self.actual_url_properties["output_path"],
                         filename=self.actual_url_properties["filename"],
@@ -258,7 +255,7 @@ class ThreadQueueDownloadStream(threading.Thread):
                     )
                 else:
                     items_resolution=self._get_itags_from_resolution_txt(self.actual_url_properties["selected_resolution"])
-                    self.ptf.download_video_selected_quality(
+                    outfn=self.ptf.download_video_selected_quality(
                         url=self.actual_url_properties["URL"],
                         output_path=self.actual_url_properties["output_path"],
                         filename=self.actual_url_properties["filename"],
@@ -269,6 +266,7 @@ class ThreadQueueDownloadStream(threading.Thread):
                         mp3=self.actual_url_properties["mp3"],
                         selected_resolution=items_resolution,
                     )
+                
 
     def add_one_line_to_buffer_ev(self):
         """Set event to add one line"""

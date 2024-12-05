@@ -123,6 +123,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.icon_save_file = None
         self.icon_info = None
         self.icon_toggle = None
+        self.icon_play = None
         self.icon_download_all = None
         self.icon_download_selected = None
         self.icon_download_folder = None
@@ -227,7 +228,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         )
         # self.model=self.twf.modelobj
         # self.twf2.signal_data_change[list, str, str, str].connect(self._table_widget_data_changed)
-        # self.twf2.signal_item_button_right_clicked[list, QtCore.QPoint].connect(self._table_item_right_clicked)
+        self.twf2.signal_item_button_right_clicked[list, QtCore.QPoint].connect(self._table_results_item_right_clicked)
 
         # --------------use_pytubefix
         self.ptf = class_pytubefix_use.use_pytubefix()
@@ -304,6 +305,14 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         if os.path.exists(path_to_file):
             self.icon_toggle = QtGui.QIcon(QtGui.QPixmap(path_to_file))
             self.pushButton_3.setIcon(self.icon_toggle)
+        
+        path_to_file = image_path + "button_play_icon.png"
+        if os.path.exists(path_to_file):
+            self.icon_play = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+        
+        path_to_file = image_path + "bin_icon.png"
+        if os.path.exists(path_to_file):
+            self.icon_bin = QtGui.QIcon(QtGui.QPixmap(path_to_file))
 
     def _table_widget_data_changed(self, track: list[str], val: any, valtype: str, subtype: str):
         """Sets the changed information in table widget by user into the Structure
@@ -425,12 +434,13 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                     break
         return url_id
 
-    def _pytubefix_download_end(self, url: str, title: str):
+    def _pytubefix_download_end(self, url: str, title: str, filename: str):
         """Receives Signal form Pytube fix when a Download is ended
 
         Args:
             url (str): url of download
             title (str): title of the download
+            filename (str): output filename
         """
         # print("========== >>>>>> Main got Signal End <<<<<<< ==========  \n" * 5)
         # print("url:", url, "\ntitle:", title)
@@ -439,7 +449,9 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             self.ongoing_download_title = None
         url_id = self._identify_urlid_from_url_str(url)
         # print("url_id:", url_id, " url:", url, "\ntitle:", title)
-        log.info("Download finished for ID: %s Title: %s \nURL: %s", url_id, title, url)
+        log.info("Download finished for ID: %s Title: %s \nURL: %s \nFile:", url_id, title, url, filename)
+        # Set new Filename
+        self.url_struct[url_id]["File Name"]=filename
         # add widget to twf
         it_w_dict = self.twf.itemwidget_dict.copy()
         track_list = it_w_dict["track_list"]
@@ -571,6 +583,35 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.url_struct_results = {}
         self._main_refresh_tablewidget2()
 
+    # Right click Menu
+    def _table_results_item_right_clicked(self, track: list, apos: QtCore.QPoint):
+        """Displays right click menu where item was right clicked
+
+        Args:
+            track (list): track of item
+            apos (QtCore.QPoint): global position of event
+        """
+        id_key_list, track_list = self._get_id_key_list_from_selection_results()
+
+        log.debug("TW results Rightclick Selected->  id_key_list: %s, track_list %s, track %s", id_key_list, track_list, track)
+        if len(track) == 0:
+            return
+        self.item_menu = QtWidgets.QMenu()
+        menu_item01 = self._add_action_to_menu(f"Play File {track[0]}", False, self.icon_play)
+        self.item_menu.addSeparator()
+        menu_item02 = self._add_action_to_menu(f"Delete File {track[0]}", False, self.icon_bin)
+        self.item_menu.addSeparator()
+        if len(id_key_list) == 0:
+            menu_item01.setEnabled(False)
+            menu_item02.setEnabled(False)
+        if len(id_key_list) > 0:
+            menu_item01.setEnabled(True)
+            #menu_item01.triggered.connect(lambda: self._play_file(track))
+            menu_item02.setEnabled(True)
+            menu_item02.triggered.connect(lambda: self._remove_file(track))
+        self.item_menu.move(apos)
+        self.item_menu.show()
+ 
     # Right click Menu
     def _table_item_right_clicked(self, track: list, apos: QtCore.QPoint):
         """Displays right click menu where item was right clicked
@@ -846,7 +887,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             )
             local_st.signal_th2m_to_log[str].connect(self._pytubefix_log)
             local_st.signal_th2m_download_start[str, str].connect(self._pytubefix_download_start)
-            local_st.signal_th2m_download_end[str, str].connect(self._pytubefix_download_end)
+            local_st.signal_th2m_download_end[str, str, str].connect(self._pytubefix_download_end)
             local_st.signal_th2m_on_progress[str, float].connect(self._pytubefix_download_progress)
             local_st.signal_th2m_thread_end[bool].connect(self._thread_exit_event)
             self.threads_event_list.append((kill_ev, local_st, q_dl_stream, map_list))
@@ -967,6 +1008,37 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                     break
             thread_index_url_id_list.append((thread_index, url_id))
         return thread_index_url_id_list
+    
+    def _remove_file(self, track: list, prompt_msgbox: bool = True):
+        """Removes downloaded file from computer
+
+        Args:
+            track (list): item to remove
+            prompt_msgbox (bool, optional): Prompt message box yes/no to delete. Defaults to True.
+        """
+        url_id=track[0]
+        url=self.url_struct_results[url_id]["URL"]
+        filename=self.url_struct_results[url_id]["File Name"]
+        title=self.url_struct_results[url_id]["File Name"]
+        fileprefix=self.url_struct_results[url_id]["File Name Prefix"]
+        dl_path=self.url_struct_results[url_id]["Download Path"]
+        #resolution=self.url_struct_results[url_id]["Resolution"]
+        #items_resolution=thread_download_pytubefix.ThreadQueueDownloadStream._get_itags_from_resolution_txt(resolution)
+        if not filename:
+            filename=self.ptf.clean_filename(title,'áéíóúüöäÜÖÄÁÉÍÓÚçÇabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -')+'.mp4'
+        if not dl_path:
+            dl_path=self.download_path
+        filename=fileprefix+filename
+        complete_output_path=os.path.join(dl_path,filename)    
+        if not os.path.exists(complete_output_path):
+            log.warning("File {complete_output_path} does not exist! :(")
+            return
+        if prompt_msgbox:
+            msg_title = "Removing Downloaded File"
+            msg_ = f"Are you sure you want to remove {url_id} File: \n{complete_output_path} \n {url} \n {title} "
+            if self.a_dialog.send_question_yes_no_msgbox(msg_title, msg_):
+                os.remove(complete_output_path)
+                log.info("Removed File {complete_output_path} .. bye bye")       
     
     def _log_captions(self, track: list):
         """Prints caption to log
@@ -1223,6 +1295,24 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             #     id_key=self.twf.get([track[0],'ID'])
             # if isinstance(self.twf.data_struct,dict):
             #     id_key=self.get_tracked_value_in_dict([track[0],'ID'])
+            if id_key not in id_key_list:
+                id_key_list.append(id_key)
+                track_list.append(track)
+        return id_key_list, track_list
+    
+    def _get_id_key_list_from_selection_results(self) -> tuple[list, list]:
+        """Gets a list of keys of the items selected for twf2
+
+        Returns:
+            tuple[list,list]: list of selected items, list of track lists
+        """
+        selindex = self.tableWidget_results.selectedIndexes()
+        id_key_list = []
+        track_list = []
+        for selection in selindex:
+            itm = self.twf2.tablewidgetobj.itemFromIndex(selection)
+            id_key = self.twf2.get_key_value_from_item(itm)
+            track = self.twf2.get_track_of_item_in_table(itm)
             if id_key not in id_key_list:
                 id_key_list.append(id_key)
                 track_list.append(track)

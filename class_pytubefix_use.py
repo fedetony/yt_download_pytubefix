@@ -14,7 +14,7 @@ import class_file_dialogs
 
 class use_pytubefix(QWidget):   
     download_start=QtCore.pyqtSignal(str,str)
-    download_end=QtCore.pyqtSignal(str,str)
+    download_end=QtCore.pyqtSignal(str,str,str)
     on_progress=QtCore.pyqtSignal(list) 
     to_log=QtCore.pyqtSignal(str) 
     
@@ -97,7 +97,7 @@ class use_pytubefix(QWidget):
                     timeout = timeout,
                     max_retries = max_retries,
                     )#mp3 = mp3)
-                self.download_end.emit(url,yt.title)
+                self.download_end.emit(url,yt.title,filename)
             except Exception as eee:
                 #print(eee)
                 self.to_log.emit("Error Downloading: {}".format(eee))
@@ -144,8 +144,7 @@ class use_pytubefix(QWidget):
         """
         if len(selected_resolution)==0:
             self.to_log.emit(f"No resolution given, setting max resolution!")
-            self.download_video_best_quality(url, output_path,filename,filename_prefix,skip_existing,timeout,max_retries,mp3) 
-            return
+            return self.download_video_best_quality(url, output_path,filename,filename_prefix,skip_existing,timeout,max_retries,mp3) 
         yt = self.get_yt_video_from_url(url)
         if yt:
             if not filename:
@@ -165,7 +164,7 @@ class use_pytubefix(QWidget):
                         timeout = timeout,
                         max_retries = max_retries,
                         )#mp3 = mp3)
-                    self.download_end.emit(url,yt.title)
+                    self.download_end.emit(url,yt.title,filename + '.mp4')
                 except Exception as eee:
                     #print(eee)
                     self.to_log.emit(f"Error Downloading {selected_resolution}: {eee}")
@@ -183,7 +182,7 @@ class use_pytubefix(QWidget):
                         self.download_start.emit(url,yt.title)
                         if os.path.exists(complete_output_path) and skip_existing:
                             self.to_log.emit("Already existing: {}".format(complete_output_path))
-                            self.download_end.emit(url,yt.title)
+                            self.download_end.emit(url,yt.title,filename+res+".mp4")
                             return
                         video_stream.download(output_path = output_path,
                             filename = "vid_"+filename+".mp4",
@@ -211,7 +210,7 @@ class use_pytubefix(QWidget):
                         final_clip.write_videofile(complete_output_path, codec='libx264',logger=_the_logger)
                         os.remove(vid_complete_output_path)
                         os.remove(aud_complete_output_path)
-                        self.download_end.emit(url,yt.title)
+                        self.download_end.emit(url,yt.title,filename+res+".mp4")
                     elif len(selected_resolution)==1:
                         self.to_log.emit(f"PyTubefix Downloading {selected_resolution}: {yt.title}")
                         ys = yt.streams.get_by_itag(selected_resolution[0])
@@ -224,7 +223,7 @@ class use_pytubefix(QWidget):
                             timeout = timeout,
                             max_retries = max_retries,
                             )#mp3 = mp3)
-                        self.download_end.emit(url,yt.title)
+                        self.download_end.emit(url,yt.title,filename + res + ".mp4")
                 except Exception as eee:
                     #print(eee)
                     self.to_log.emit("Error Downloading: {}".format(eee))
@@ -253,7 +252,7 @@ class use_pytubefix(QWidget):
                         timeout = timeout,
                         max_retries = max_retries,
                         )#mp3 = mp3)
-                    self.download_end.emit(url,yt.title)
+                    self.download_end.emit(url,yt.title,filename)
                 except Exception as eee:
                     #print(eee)
                     self.to_log.emit("Error Downloading: {}".format(eee))
@@ -269,7 +268,7 @@ class use_pytubefix(QWidget):
                     self.download_start.emit(url,yt.title)
                     if os.path.exists(complete_output_path) and skip_existing:
                         self.to_log.emit("Already existing: {}".format(complete_output_path))
-                        self.download_end.emit(url,yt.title)
+                        self.download_end.emit(url,yt.title,filename+".mp4")
                         return
                     video_stream.download(output_path = output_path,
                         filename = "vid_"+filename+".mp4",
@@ -297,7 +296,7 @@ class use_pytubefix(QWidget):
                     final_clip.write_videofile(complete_output_path, codec='libx264',logger=_the_logger)
                     os.remove(vid_complete_output_path)
                     os.remove(aud_complete_output_path)
-                    self.download_end.emit(url,yt.title)
+                    self.download_end.emit(url,yt.title,filename+".mp4")
                 except Exception as eee:
                     #print(eee)
                     self.to_log.emit("Error Downloading: {}".format(eee))
@@ -494,7 +493,7 @@ class use_pytubefix(QWidget):
                         timeout = timeout,
                         max_retries = max_retries,
                         )#mp3 = mp3)
-                    self.download_end.emit(str(video.watch_url),video.title)
+                    self.download_end.emit(str(video.watch_url),video.title,new_filename)
                 except Exception as eee:
                     #print(eee)
                     self.to_log.emit("Error Downloading: {}".format(eee))
@@ -637,7 +636,7 @@ class use_pytubefix(QWidget):
                         timeout = timeout,
                         max_retries = max_retries,
                         )#mp3 = mp3)
-                    self.download_end.emit(str(video.watch_url),video.title)
+                    self.download_end.emit(str(video.watch_url),video.title,new_filename)
                 except Exception as eee:
                     #print(eee)
                     self.to_log.emit("Error Downloading: {}".format(eee))

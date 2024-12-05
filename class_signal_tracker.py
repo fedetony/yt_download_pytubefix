@@ -23,13 +23,13 @@ class SignalTracker(QWidget):
     signal_th2m_thread_log_update = QtCore.pyqtSignal(str)
     signal_th2m_thread_end = QtCore.pyqtSignal(bool)
     signal_th2m_download_start = QtCore.pyqtSignal(str, str)
-    signal_th2m_download_end = QtCore.pyqtSignal(str, str)
+    signal_th2m_download_end = QtCore.pyqtSignal(str, str, str)
     signal_th2m_on_progress = QtCore.pyqtSignal(str, float)
     signal_th2m_to_log = QtCore.pyqtSignal(str)
 
     # signals from pytubefix to thread
     signal_ptf2th_download_start = QtCore.pyqtSignal(str, str)
-    signal_ptf2th_download_end = QtCore.pyqtSignal(str, str)
+    signal_ptf2th_download_end = QtCore.pyqtSignal(str, str, str)
     signal_ptf2th_on_progress = QtCore.pyqtSignal(str, float)
     signal_ptf2th_to_log = QtCore.pyqtSignal(str)
 
@@ -42,7 +42,7 @@ class SignalTracker(QWidget):
         self.ptf = class_pytubefix_use.use_pytubefix()
         self.ptf.to_log[str].connect(self.ptf2th_to_log)
         self.ptf.download_start[str, str].connect(self.ptf2th_download_start)
-        self.ptf.download_end[str, str].connect(self.ptf2th_download_end)
+        self.ptf.download_end[str, str, str].connect(self.ptf2th_download_end)
         self.ptf.on_progress[list].connect(self.ptf2th_on_progress)
 
     def send_th_exit(self, fine_exit: bool):
@@ -88,14 +88,14 @@ class SignalTracker(QWidget):
         """
         self.signal_th2m_download_start.emit(url, title)
 
-    def send_download_end(self, url: str, title: str):
+    def send_download_end(self, url: str, title: str, filename: str):
         """Emits from thread to main the pytubefix signal download_end
 
         Args:
             url (str): url
             title (str): title
         """
-        self.signal_th2m_download_end.emit(url, title)
+        self.signal_th2m_download_end.emit(url, title, filename)
 
     def send_to_log(self, txt: str):
         """Emits from thread to main the pytubefix signal to_log
@@ -123,14 +123,14 @@ class SignalTracker(QWidget):
         """
         self.signal_ptf2th_download_start.emit(url, title)
 
-    def ptf2th_download_end(self, url: str, title: str):
+    def ptf2th_download_end(self, url: str, title: str, filename: str):
         """Emits from pytubefix to to thread signal download_end
 
         Args:
             url (str): url
             title (str): title
         """
-        self.signal_ptf2th_download_end.emit(url, title)
+        self.signal_ptf2th_download_end.emit(url, title, filename)
 
     def ptf2th_to_log(self, txt: str):
         """Emits from pytubefix to thread signal to_log
