@@ -606,7 +606,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             menu_item02.setEnabled(False)
         if len(id_key_list) > 0:
             menu_item01.setEnabled(True)
-            #menu_item01.triggered.connect(lambda: self._play_file(track))
+            menu_item01.triggered.connect(lambda: self._play_file(track))
             menu_item02.setEnabled(True)
             menu_item02.triggered.connect(lambda: self._remove_file(track))
         self.item_menu.move(apos)
@@ -1009,15 +1009,17 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             thread_index_url_id_list.append((thread_index, url_id))
         return thread_index_url_id_list
     
-    def _remove_file(self, track: list, prompt_msgbox: bool = True):
-        """Removes downloaded file from computer
+    def _get_complete_output_file(self, track: list)->str:
+        """Gets the full path to item  in result list
 
         Args:
-            track (list): item to remove
-            prompt_msgbox (bool, optional): Prompt message box yes/no to delete. Defaults to True.
+            track (list): track of the result item
+
+        Returns:
+            str: path and file string if file exists, None if it does not exist
         """
         url_id=track[0]
-        url=self.url_struct_results[url_id]["URL"]
+        #url=self.url_struct_results[url_id]["URL"]
         filename=self.url_struct_results[url_id]["File Name"]
         title=self.url_struct_results[url_id]["File Name"]
         fileprefix=self.url_struct_results[url_id]["File Name Prefix"]
@@ -1032,13 +1034,57 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         complete_output_path=os.path.join(dl_path,filename)    
         if not os.path.exists(complete_output_path):
             log.warning("File {complete_output_path} does not exist! :(")
+            return None
+        return complete_output_path
+    
+    def _play_file(self, track: list):
+        """
+        Opens a video file using the default media player.
+
+        Args:
+            video_path (str): The path to the video file.
+        """
+        video_path=self._get_complete_output_file(track)
+        if not video_path:
+            return
+        # Check if the operating system is Windows or Linux
+        if os.name == 'nt':  # Windows
+            # Use the default media player for Windows
+            log.info("Opening in default Media Player...")
+            os.startfile(video_path)
+        elif os.name == 'posix':  # Linux and macOS
+            # Use the `xdg-open` command to open the file with a suitable application
+            log.info("Opening video using xdg-open...")
+            subprocess.run(['xdg-open', video_path])
+        else:
+            raise Exception(f"Unsupported operating system: {os.name}")
+        
+
+    def _remove_file(self, track: list, prompt_msgbox: bool = True):
+        """Removes downloaded file from computer
+
+        Args:
+            track (list): item to remove
+            prompt_msgbox (bool, optional): Prompt message box yes/no to delete. Defaults to True.
+        """
+        url_id=track[0]
+        url=self.url_struct_results[url_id]["URL"]
+        title=self.url_struct_results[url_id]["File Name"]
+        complete_output_path=self._get_complete_output_file(track)
+        if not complete_output_path:
             return
         if prompt_msgbox:
             msg_title = "Removing Downloaded File"
             msg_ = f"Are you sure you want to remove {url_id} File: \n{complete_output_path} \n {url} \n {title} "
-            if self.a_dialog.send_question_yes_no_msgbox(msg_title, msg_):
-                os.remove(complete_output_path)
-                log.info("Removed File {complete_output_path} .. bye bye")       
+            if not self.a_dialog.send_question_yes_no_msgbox(msg_title, msg_):
+                return
+        try:
+            os.remove(complete_output_path)
+            log.info("Removed File {complete_output_path} .. bye bye")       
+            self._remove_url_items_results([url_id])
+        except (FileExistsError,FileNotFoundError,PermissionError) as eee:
+            log.error("File could not be deleted: %s",eee)
+        
     
     def _log_captions(self, track: list):
         """Prints caption to log
@@ -1194,6 +1240,27 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             self.url_struct = self.a_ufun.get_dict_wo_key(self.url_struct, a_key)
             self.url_struct_options = self.a_ufun.get_dict_wo_key(self.url_struct_options, a_key)
         self._main_refresh_tablewidget()
+    
+    def _remove_url_items_results(self, id_key_list: list, prompt_msgbox: bool = False):
+        """Removes items from table results
+
+        Args:
+            id_key_list (list): list of items to remove
+            prompt_msgbox (bool, optional): Prompt message box yes/no to delete. Defaults to False.
+        """
+        if prompt_msgbox:
+            if self._is_same_list(self.a_ufun.get_dict_key_list(self.url_struct_results), id_key_list):
+                msg_title = "Removing ALL URLS"
+                msg_ = f"Are you sure to remove ALL items: {len(id_key_list)} in total"
+            else:
+                msg_title = "Removing URLS"
+                msg_ = f"Are you sure to remove items {id_key_list}"
+            if not self.a_dialog.send_question_yes_no_msgbox(msg_title, msg_):
+                return
+
+        for a_key in id_key_list:
+            self.url_struct_results = self.a_ufun.get_dict_wo_key(self.url_struct_results, a_key)
+        self._main_refresh_tablewidget2()
 
     def _get_available_resolutions_progressive(self,url:str)->list:
         """Gets the resolutions for progressive download
