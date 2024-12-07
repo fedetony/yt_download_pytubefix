@@ -1,5 +1,6 @@
 import re
 import os
+import json
 from pytubefix import YouTube, Playlist, Stream
 from pytubefix.cli import on_progress
 from pytubefix import Channel,Caption
@@ -7,10 +8,13 @@ from pytubefix import Channel,Caption
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import *
 import proglog
-from moviepy.editor import VideoFileClip, AudioFileClip
+#from moviepy.editor import VideoFileClip, AudioFileClip
+from moviepy.video.io.VideoFileClip import VideoFileClip
+from moviepy.audio.io.AudioFileClip import AudioFileClip
 
 import class_file_dialogs
 
+ALLOWED_CHARS = 'áéíóúüöäÜÖÄÁÉÍÓÚçÇabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -'
 
 class use_pytubefix(QWidget):   
     download_start=QtCore.pyqtSignal(str,str)
@@ -22,6 +26,83 @@ class use_pytubefix(QWidget):
         super(use_pytubefix, self).__init__(*args, **kwargs)    
         self.__name__="pytubefix"
         self.cfd =class_file_dialogs.Dialogs()
+        self.po_token_verifier=None
+        self._read_file_po_token()
+        
+    def _read_file_po_token(self):
+        """Read Json file with potoken info
+        """
+        # here read potoken 
+        filename=os.path.join(self.cfd.get_app_path(),'token_info.json')
+        if os.path.exists(filename):
+            try: 
+                with open(filename, encoding="utf-8") as fff:
+                    data = fff.read()
+                    # reconstructing the data as a dictionary
+                    fff.close()
+                js_data = json.loads(data)
+                self.po_token_verifier=(js_data['visitor_data'],js_data['po_token'])
+            except Exception as eee:
+                self.po_token_verifier = None
+                self.to_log.emit(f'Error Failed to read token_info.json: {eee}')
+
+        #if not self.po_token_verifier:
+        #    self._set_po_token_manually()
+
+    def clear_po_token(self):
+        """Delete potoken file and reset potoken
+        """
+        self.po_token_verifier=None
+        # here delete cache file
+        try:
+            filename=os.path.join(self.cfd.get_app_path(),'token_info.json')
+            os.remove(filename)
+        except Exception as eee:
+            self.to_log.emit(f'Error Failed to remove token info: {eee}')
+
+    def save_token_info_to_json(self, token_info: tuple[str]):
+        """
+        Saves token information to a JSON file.
+
+        Args:
+            token_info (Optional[TokenInfo]): Token info object.
+            filename (str): Name of the output JSON file. Defaults to 'token_info.json'.
+        """
+        filename=os.path.join(self.cfd.get_app_path(),'token_info.json')
+        visitor_data = token_info[0]
+        po_token = token_info[1]
+        # Create a dictionary with the extracted information
+        data_dict = {
+            'visitor_data': visitor_data,
+            'po_token': po_token
+        }
+        try:
+            # Open the file in write mode and load any existing content
+            with open(filename, 'w', encoding="utf-8") as fff:
+                json.dump(data_dict, fff)
+                self.to_log.emit(f'Token info saved to {filename}')
+        except Exception as eee:
+            self.to_log.emit(f'Error Failed to save token info: {eee}')
+
+    def _set_po_token_manually(self):
+        """Generate the token_info.json file with potoken data input
+        """
+        if not self.po_token_verifier:
+            verifier=self.cfd.get_text_dialog("YT anti robot verification Verifier","Please type the Visitor\n")
+            potoken=self.cfd.get_text_dialog("YT anti robot verification Potoken","Please type the Proof of Origin Token (potoken)\n")
+            if verifier and potoken:
+                if len(potoken)<160:
+                    self.to_log.emit(f'Warning potoken will probably not work!')
+                self.po_token_verifier=(verifier,potoken)
+                do_save=self.cfd.send_question_yes_no_msgbox("Set Potoken?",f"Do you want to set the following potoken into file? \n Visitor: {verifier}\n po_token: {potoken}")
+                if do_save:
+                    self.save_token_info_to_json(self.po_token_verifier)
+                    self.to_log.emit(f"Manual potoken set: {self.po_token_verifier}")
+                else:
+                    self.to_log.emit(f"Manual potoken set for this session: {self.po_token_verifier}")
+            else:
+                self.to_log.emit("Error No Manual potoken set!")
+                self.po_token_verifier=None
 
     def _on_progress(self, stream: Stream,
                 chunk: bytes,
@@ -36,17 +117,28 @@ class use_pytubefix(QWidget):
         if filesize <= 0:
             filesize=1
         self.on_progress.emit([bytes_received,filesize])
-    
+    def call_po_token(self):
+        return self.po_token_verifier
     #clients: WEB, WEB_EMBED, WEB_MUSIC, WEB_CREATOR, WEB_SAFARI, ANDROID, ANDROID_MUSIC, ANDROID_CREATOR, ANDROID_VR, ANDROID_PRODUCER
     # , ANDROID_TESTSUITE, IOS, IOS_MUSIC, IOS_CREATOR, MWEB, TV_EMBED, MEDIA_CONNECT
 
-    def get_yt_video_from_url(self,url,client='WEB'): #'WEB_CREATOR'):
+    def get_yt_video_from_url(self,url,client='WEB',use_po_token=False): #'WEB_CREATOR'):
         try:
             #if client=='WEB':
             #    yt = YouTube(url, client=client, use_po_token=True, on_progress_callback = self._on_progress)
             #else:
             #    yt = YouTube(url, client=client, on_progress_callback = self._on_progress)
-            yt = YouTube(url, client=client, on_progress_callback = self._on_progress)
+            if use_po_token:
+                if not self.po_token_verifier:
+                    self.to_log.emit("Adaptive files require a potoken to download correctly!")
+                    self.to_log.emit("Set file in config/token_info.json, it can be generated running potoken-generator program!")
+                    if self.cfd.send_question_yes_no_msgbox("Manual input of potoken","Would you like to input the Proof of Origin Token (potoken) manually?"):
+                        self._set_po_token_manually()
+                if not self.po_token_verifier:
+                    return None
+                yt = YouTube(url, client=client,use_po_token=use_po_token, po_token_verifier=self.call_po_token, on_progress_callback = self._on_progress)
+            else:
+                yt = YouTube(url, client=client, on_progress_callback = self._on_progress)
         except Exception as eee:
             #print(eee)
             self.to_log.emit("Error Video: {}".format(eee))
@@ -89,7 +181,7 @@ class use_pytubefix(QWidget):
             try:
                 self.download_start.emit(url,yt.title)
                 if not filename:
-                    filename=self.clean_filename(yt.title,'áéíóúüöäÜÖÄÁÉÍÓÚçÇabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -')+'.mp4'
+                    filename=self.clean_filename(yt.title,ALLOWED_CHARS)+'.mp4'
                 ys.download(output_path = output_path,
                     filename = filename,
                     filename_prefix = filename_prefix,
@@ -145,10 +237,10 @@ class use_pytubefix(QWidget):
         if len(selected_resolution)==0:
             self.to_log.emit(f"No resolution given, setting max resolution!")
             return self.download_video_best_quality(url, output_path,filename,filename_prefix,skip_existing,timeout,max_retries,mp3) 
-        yt = self.get_yt_video_from_url(url)
+        yt = self.get_yt_video_from_url(url,use_po_token=True)
         if yt:
             if not filename:
-                filename=self.clean_filename(yt.title,'áéíóúüöäÜÖÄÁÉÍÓÚçÇabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -')
+                filename=self.clean_filename(yt.title,ALLOWED_CHARS)
             self.to_log.emit(f"PyTubefix Downloading {selected_resolution}: {yt.title}")
             if mp3:    
                 if len(selected_resolution)==2:
@@ -235,11 +327,23 @@ class use_pytubefix(QWidget):
                 timeout: int = None,
                 max_retries: int = 0,
                 mp3: bool = False,
-                ):    
-        yt = self.get_yt_video_from_url(url)
+                ):  
+        """Downloads a audio or a video with best quality
+
+        Args:
+            url (str): url of yt video
+            output_path (str): path
+            filename (str, optional): filename. Defaults to None.
+            filename_prefix (str, optional): prefix. Defaults to None.
+            skip_existing (bool, optional): if file exists skip. Defaults to True.
+            timeout (int, optional): timeout for download. Defaults to None.
+            max_retries (int, optional): retries. Defaults to 0.
+            mp3 (bool, optional): if mp3. Defaults to False.
+        """  
+        yt = self.get_yt_video_from_url(url,use_po_token=True)
         if yt:
             if not filename:
-                filename=self.clean_filename(yt.title,'áéíóúüöäÜÖÄÁÉÍÓÚçÇabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -')
+                filename=self.clean_filename(yt.title,ALLOWED_CHARS)
             self.to_log.emit(f"PyTubefix Downloading: {yt.title}")
             if mp3:                
                 ys = yt.streams.filter(adaptive=True, file_extension='mp4', only_audio=True).order_by('abr').desc().first()
@@ -317,7 +421,13 @@ class use_pytubefix(QWidget):
         return cleaned_base + extension
         
     
-    def get_url_info(self,url):
+    def get_url_info(self,url:str)->dict:
+        """Gets all info in the url.
+        Args:
+            url (str): url desired
+        Returns:
+            dict: All information of the video. 
+        """
         yt_info={}
         yt = self.get_yt_video_from_url(url)
         if yt:
@@ -409,7 +519,15 @@ class use_pytubefix(QWidget):
                 pass
         return vid_list, vid_list_url
 
-    def is_url_a_channel(self,url):
+    def is_url_a_channel(self,url:str)->bool:
+        """identify if url is a channel
+
+        Args:
+            url (str): url
+
+        Returns:
+            bool: True if is a channel
+        """
         patterns = [
             r"(?:\/(c)\/([%\d\w_\-]+)(\/.*)?)",
             r"(?:\/(channel)\/([%\w\d_\-]+)(\/.*)?)",

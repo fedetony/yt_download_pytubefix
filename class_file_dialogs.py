@@ -9,7 +9,7 @@ import re
 import subprocess
 
 # from PyQt5 import QtCore
-from PyQt5.QtWidgets import QFileDialog, QWidget, QMessageBox
+from PyQt5.QtWidgets import QFileDialog, QWidget, QMessageBox, QInputDialog
 from PyQt5.QtWidgets import QDialog, QStackedWidget, QListView, QLineEdit
 
 def get_file_manager_path():
@@ -428,3 +428,25 @@ class Dialogs(QWidget):
         msgbox.setIcon(QMessageBox.Information)
         msgbox.setText(amsg)
         msgbox.exec_()
+    
+    def get_text_dialog(self, title: str, amsg: str) -> str:
+      text, ok = QInputDialog.getText(self, title, amsg)
+      if ok:
+         return str(text)
+      return None
+    
+    def get_int_dialog(self, title: str, amsg: str):
+      num,ok = QInputDialog.getInt(self, title, amsg)
+      if ok:
+         return num
+      return None
+    
+    def get_Item_Selection(self, items:tuple[str], title: str, amsg: str)->str:
+      if len(items)==0:
+          return None
+      item, ok = QInputDialog.getItem(self,  title, amsg, items, 0, False)
+			
+      if ok and item:
+         return str(item)
+      return None
+
