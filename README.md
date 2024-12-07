@@ -6,7 +6,7 @@
 Features
 ---------------------------------------
 - Load save lists of URLS you create using the tool.
-- Append video URLs to the list
+- Append video URLs of videos, playlists or channels to the list:
     - Add Simple URL text
     - make comma separated list in square brackets : [URL1,URL2,...URLn]
 - Automatic detection of YT channels and playlists.
@@ -14,10 +14,15 @@ Features
 - Multiselection of URLs
 - Usage of backend threads to download using pytubefix
 - Resolution and codec selection
+- Progressive and Adaptive download formats.
+- Save captions to file
+- Dump all information and metadata to file
+- Reproduce downloaded files.
+- Delete video Files in result list 
 
 To do:
 ---------------------------------------------------------------------------------
-- Add subtitles, file saving of subtitles
+- Add subtitles
 - Save downloaded list.
 - Allow simple URL list as csv or txt file input.
 
