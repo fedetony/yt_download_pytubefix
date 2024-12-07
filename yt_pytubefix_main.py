@@ -24,15 +24,16 @@ import logging
 import threading
 import time
 import json
+import datetime
+import subprocess
 
-import pytubefix.metadata
+from importlib.metadata import version
 import yaml
 import requests
-import datetime
-
 from PyQt5 import QtCore, QtGui, QtWidgets
-from importlib.metadata import version
+
 import pytubefix
+import pytubefix.metadata
 
 # from genericpath import isfile
 # from operator import index
@@ -45,7 +46,8 @@ import class_useful_functions
 import class_log_dialog
 import thread_download_pytubefix
 import yt_pytubefix_gui
-#import yt_pytubefix_log_dialog
+
+# import yt_pytubefix_log_dialog
 
 # import json
 # import re
@@ -53,20 +55,14 @@ import yt_pytubefix_gui
 # set up logging to file - see previous section for more details
 log = logging.getLogger("")  # root logger
 # For file
+APP_PATH = ""
 if getattr(sys, "frozen", False):
     APP_PATH = os.path.dirname(sys.executable)
 elif __file__:
     APP_PATH = os.path.dirname(__file__)
-LOG_PATH=APP_PATH+os.sep+"logs"
+LOG_PATH = APP_PATH + os.sep + "logs"
 if not os.path.exists(LOG_PATH):
     os.mkdir(LOG_PATH)
-"""
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s',
-                    datefmt='%y-%m-%d %H:%M',
-                    filename=LOG_PATH+os.sep+'__last_run__.log',
-                    filemode='a')
-"""
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s", datefmt="%y-%m-%d %H:%M"
@@ -81,13 +77,14 @@ file_formatter = logging.Formatter("%(asctime)s [%(levelname)s] (%(threadName)-1
 # tell the handler to use this format
 console.setFormatter(formatter)
 
-file_handler = logging.FileHandler(LOG_PATH+os.sep+'__yt_pytubefix_gui__.log')
+file_handler = logging.FileHandler(LOG_PATH + os.sep + "__yt_pytubefix_gui__.log")
 file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(file_formatter)
 # add the handlers to the root logger
 logging.getLogger("").addHandler(console)
 logging.getLogger("").addHandler(file_handler)
 logging.getLogger("").propagate = False
+
 
 class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
     """GUI for handleing Pytubefix
@@ -112,23 +109,26 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.url_struct_mask = {}
         self.url_struct_results_mask = {}
         self.url_struct_options = {}
-        self.icon_main_pixmap = None
-        self.icon_main_pixmap = None
-        self.icon_main = None
-        self.icon_main = None
-        self.icon_plus = None
-        self.icon_log = None
-        self.icon_explorer = None
-        self.icon_open_file = None
-        self.icon_save_file = None
-        self.icon_info = None
-        self.icon_toggle = None
-        self.icon_play = None
-        self.icon_download_all = None
-        self.icon_download_selected = None
-        self.icon_download_folder = None
-        self.icon_clear = None
-        self.icon_minus = None
+        # icons
+        self.icon_main_pixmap = QtGui.QIcon()
+        self.icon_main_pixmap = QtGui.QIcon()
+        self.icon_main = QtGui.QIcon()
+        self.icon_main = QtGui.QIcon()
+        self.icon_plus = QtGui.QIcon()
+        self.icon_log = QtGui.QIcon()
+        self.icon_explorer = QtGui.QIcon()
+        self.icon_open_file = QtGui.QIcon()
+        self.icon_save_file = QtGui.QIcon()
+        self.icon_info = QtGui.QIcon()
+        self.icon_toggle = QtGui.QIcon()
+        self.icon_play = QtGui.QIcon()
+        self.icon_bin = QtGui.QIcon()
+        self.icon_download_all = QtGui.QIcon()
+        self.icon_download_selected = QtGui.QIcon()
+        self.icon_download_folder = QtGui.QIcon()
+        self.icon_clear = QtGui.QIcon()
+        self.icon_minus = QtGui.QIcon()
+
         self.twf = None
         self.twf2 = None
         self.ptf = None
@@ -138,6 +138,8 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.item_menu = None
         self.threads_event_list = []
         self.threads_mapping_dict = {}
+        self.log_dia = None
+        self.log_text_box = None
 
     def start_up(self):
         """Start the UI first to get all objects in"""
@@ -156,7 +158,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             "__any__": {
                 "Index": {"__m__1": "is_unique", "__mv__1": ""},
                 "DL Status": {"__m__1": "is_not_change", "__mv__1": ""},
-                #"Resolution": {"__m__1": "is_not_change", "__mv__1": ""}, # dont mask if it has widget
+                # "Resolution": {"__m__1": "is_not_change", "__mv__1": ""}, # dont mask if it has widget
                 "Title": {"__m__1": "is_value_type", "__mv__1": str(str)},
                 "URL": {"__m__1": "is_value_type", "__mv__1": str(str), "__m__2": "is_not_change", "__mv__2": ""},
                 "DL Enable": {"__m__1": "is_value_type", "__mv__1": str(bool)},
@@ -179,7 +181,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                 "File Name": {"__m__1": "is_format", "__mv__1": r"^[a-zA-Z0-9._-]+(\.[a-zA-Z0-9._-]+)?$"},
                 "File Name Prefix": {"__m__1": "is_format", "__mv__1": r"^[a-zA-Z0-9._-]+$"},
                 "Download Path": {"__m__1": "is_not_change", "__mv__1": ""},
-                #"Selected Resolution Codec": {"__m__1": "is_value_type", "__mv__1": str(str)},
+                # "Selected Resolution Codec": {"__m__1": "is_value_type", "__mv__1": str(str)},
             },
             # This was to test restriction on a specific id :) works
             # "URL0": {
@@ -222,7 +224,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.twf.signal_data_change[list, str, str, str].connect(self._table_widget_data_changed)
         self.twf.signal_item_button_right_clicked[list, QtCore.QPoint].connect(self._table_item_right_clicked)
         self.twf.signal_item_combobox_currentindexchanged[int, str, list].connect(self._table_item_comboboxindexchanged)
-        
+
         self.twf2 = class_table_widget_functions.TableWidgetFunctions(
             self.tableWidget_results, self.url_struct_results, self.url_struct_results_mask, None, []
         )
@@ -240,6 +242,22 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.a_dialog.set_default_dir(self.app_path)
         self._connect_actions()
 
+    def _set_icon_to_object(self, path_to_file, icon_obj: QtGui.QIcon, obj_set_icon):
+        """_summary_
+
+        Args:
+            path_to_file (_type_): path where image is, None for setting icon to object only
+            icon_obj (QtGui.QIcon): icon object
+            obj_set_icon (QObject): object to assign icon
+        """
+        if os.path.exists(path_to_file):
+            icon_obj = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+            if obj_set_icon:
+                obj_set_icon.setIcon(icon_obj)
+        elif not path_to_file and obj_set_icon:
+            obj_set_icon.setIcon(icon_obj)
+        return icon_obj
+
     def _set_icons(self):
         """Sets the icons if they are found"""
         image_path = self.app_path + os.sep + "img" + os.sep
@@ -247,72 +265,50 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         if os.path.exists(path_to_file):
             self.icon_main_pixmap = QtGui.QPixmap(path_to_file)
             self.icon_main = QtGui.QIcon(QtGui.QPixmap(path_to_file))
-        
+
         path_to_file = image_path + "document_icon.png"
-        if os.path.exists(path_to_file):
-            self.icon_log = QtGui.QIcon(QtGui.QPixmap(path_to_file))
-            self.actionShow_Log.setIcon(self.icon_log)
+        self.icon_log = self._set_icon_to_object(path_to_file, self.icon_log, self.actionShow_Log)
 
         path_to_file = image_path + "plus_icon.png"
-        if os.path.exists(path_to_file):
-            self.icon_plus = QtGui.QIcon(QtGui.QPixmap(path_to_file))
-            self.pushButton_url.setIcon(self.icon_plus)
+        self.icon_plus = self._set_icon_to_object(path_to_file, self.icon_plus, self.pushButton_url)
 
         path_to_file = image_path + "explorer_file_icon.png"
-        if os.path.exists(path_to_file):
-            self.icon_explorer = QtGui.QIcon(QtGui.QPixmap(path_to_file))
-            self.pushButton_2.setIcon(self.icon_explorer)
+        self.icon_explorer = self._set_icon_to_object(path_to_file, self.icon_explorer, self.pushButton_2)
 
         path_to_file = image_path + "open_file_icon.png"
-        if os.path.exists(path_to_file):
-            self.icon_open_file = QtGui.QIcon(QtGui.QPixmap(path_to_file))
-            self.actionOpen_URL_list.setIcon(self.icon_open_file)
+        self.icon_open_file = self._set_icon_to_object(path_to_file, self.icon_open_file, self.actionOpen_URL_list)
 
         path_to_file = image_path + "save_file_icon.png"
-        if os.path.exists(path_to_file):
-            self.icon_save_file = QtGui.QIcon(QtGui.QPixmap(path_to_file))
-            self.actionSave_URL_list.setIcon(self.icon_save_file)
+        self.icon_save_file = self._set_icon_to_object(path_to_file, self.icon_save_file, self.actionSave_URL_list)
 
         path_to_file = image_path + "info_icon.png"
-        if os.path.exists(path_to_file):
-            self.icon_info = QtGui.QIcon(QtGui.QPixmap(path_to_file))
-            self.actionAbout.setIcon(self.icon_info)
+        self.icon_info = self._set_icon_to_object(path_to_file, self.icon_info, self.actionAbout)
 
         path_to_file = image_path + "download_folder_icon.png"
-        if os.path.exists(path_to_file):
-            self.icon_download_folder = QtGui.QIcon(QtGui.QPixmap(path_to_file))
-            self.actionSet_Path.setIcon(self.icon_download_folder)
+        self.icon_download_folder = self._set_icon_to_object(
+            path_to_file, self.icon_download_folder, self.actionSet_Path
+        )
 
         path_to_file = image_path + "minus_icon.png"
-        if os.path.exists(path_to_file):
-            self.icon_minus = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+        self.icon_minus = self._set_icon_to_object(path_to_file, self.icon_minus, None)
 
         path_to_file = image_path + "download_all_icon.png"
-        if os.path.exists(path_to_file):
-            self.icon_download_all = QtGui.QIcon(QtGui.QPixmap(path_to_file))
-            self.pushButton_4.setIcon(self.icon_download_all)
+        self.icon_download_all = self._set_icon_to_object(path_to_file, self.icon_download_all, self.pushButton_4)
 
         path_to_file = image_path + "download_selected_icon.png"
-        if os.path.exists(path_to_file):
-            self.icon_download_selected = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+        self.icon_download_selected = self._set_icon_to_object(path_to_file, self.icon_download_selected, None)
 
         path_to_file = image_path + "clear_icon.png"
-        if os.path.exists(path_to_file):
-            self.icon_clear = QtGui.QIcon(QtGui.QPixmap(path_to_file))
-            self.pushButton_5.setIcon(self.icon_clear)
+        self.icon_clear = self._set_icon_to_object(path_to_file, self.icon_clear, self.pushButton_5)
 
         path_to_file = image_path + "toggle_icon.png"
-        if os.path.exists(path_to_file):
-            self.icon_toggle = QtGui.QIcon(QtGui.QPixmap(path_to_file))
-            self.pushButton_3.setIcon(self.icon_toggle)
-        
+        self.icon_toggle = self._set_icon_to_object(path_to_file, self.icon_toggle, self.pushButton_3)
+
         path_to_file = image_path + "button_play_icon.png"
-        if os.path.exists(path_to_file):
-            self.icon_play = QtGui.QIcon(QtGui.QPixmap(path_to_file))
-        
+        self.icon_play = self._set_icon_to_object(path_to_file, self.icon_play, None)
+
         path_to_file = image_path + "bin_icon.png"
-        if os.path.exists(path_to_file):
-            self.icon_bin = QtGui.QIcon(QtGui.QPixmap(path_to_file))
+        self.icon_bin = self._set_icon_to_object(path_to_file, self.icon_bin, None)
 
     def _table_widget_data_changed(self, track: list[str], val: any, valtype: str, subtype: str):
         """Sets the changed information in table widget by user into the Structure
@@ -356,15 +352,13 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             self.url_struct_options[key_s].update({"mp3": self.url_struct[key_s]["MP3"]})
             self.url_struct_options[key_s].update({"selected_resolution": self.url_struct[key_s]["Resolution"]})
 
-
     def _pytubefix_download_progress(self, url: str, per: float):
-        """Shows download progress
-        """
+        """Shows download progress"""
         url_id = self._identify_urlid_from_url_str(url)
 
         # printing too many lines when joining video and audio
-        #txt = f"Downloaded {per}% for {url_id} {url}"
-        #log.info(txt)
+        # txt = f"Downloaded {per}% for {url_id} {url}"
+        # log.info(txt)
 
         # add widget to twf
         it_w_dict = self.twf.itemwidget_dict.copy()
@@ -448,10 +442,10 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             self.ongoing_download_url = None
             self.ongoing_download_title = None
         url_id = self._identify_urlid_from_url_str(url)
-        # print("url_id:", url_id, " url:", url, "\ntitle:", title)
-        log.info("Download finished for ID: %s Title: %s \nURL: %s \nFile:", url_id, title, url, filename)
+        # msg= f"Download finished for ID: {url_id} Title: {title} \nURL: {url} \nFile: {filename}"
+        log.info("Download finished for ID: %s Title: %s \nURL: %s \nFile: %s", url_id, title, url, filename)
         # Set new Filename
-        self.url_struct[url_id]["File Name"]=filename
+        self.url_struct[url_id]["File Name"] = filename
         # add widget to twf
         it_w_dict = self.twf.itemwidget_dict.copy()
         track_list = it_w_dict["track_list"]
@@ -461,8 +455,8 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             if self._is_same_list(track, [url_id, "DL Status"]):
                 track_list.pop(nnn)
                 widget_list.pop(nnn)
-        self._add_remove_downloading_icons_([url_id],False,None)
-        self._add_remove_downloading_icons_([url_id],True,self.icon_main)
+        self._add_remove_downloading_icons_([url_id], False, None)
+        self._add_remove_downloading_icons_([url_id], True, self.icon_main)
         it_w_dict.update({"track_list": track_list})
         it_w_dict.update({"widget_list": widget_list})
         self.twf.set_items_widgets(it_w_dict)
@@ -471,7 +465,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
 
     def _pytubefix_log(self, log_msg: str):
         """Logs message from pytubefix
-        
+
         Args:
              log_msg (str): message
         """
@@ -487,14 +481,12 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             log.info(log_msg)
 
     def get_general_config(self):
-        """Returns the configuration set in yml file
-        """
+        """Returns the configuration set in yml file"""
         self.default_config_path = self.app_path + os.sep + "config" + os.sep + "cfg.yml"
         return self.open_configuration_yml_file(self.default_config_path)
 
     def open_configuration_yml_file(self, path_config_file):
-        """Opens configuration file in yml format
-        """
+        """Opens configuration file in yml format"""
         path_config = ""
         try:
             with open(path_config_file, encoding="UTF-8") as file:
@@ -520,8 +512,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         return path_config
 
     def _connect_actions(self):
-        """Connect all objects
-        """
+        """Connect all objects"""
         self.lineEdit_url.textChanged.connect(self._lineedit_url_changed)
         self.actionAbout.triggered.connect(self.show_aboutbox)
         self.actionOpen_URL_list.triggered.connect(self.open_url_list)
@@ -539,23 +530,20 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.tableWidget_url.customContextMenuRequested.connect(self._table_item_right_clicked)
 
     def _open_log_dialog(self):
-        path_to_file=LOG_PATH+os.sep+'__yt_pytubefix_gui__.log'
-        self.log_dia = class_log_dialog.log_dialog(path_to_file,self.icon_log)
-        self.logTextBox = class_log_dialog.QTextEditLogger(self.log_dia.ld_ui.textEdit)
+        path_to_file = LOG_PATH + os.sep + "__yt_pytubefix_gui__.log"
+        self.log_dia = class_log_dialog.log_dialog(path_to_file, self.icon_log)
+        self.log_text_box = class_log_dialog.QTextEditLogger(self.log_dia.ld_ui.textEdit)
         # You can format what is printed to text box
-        self.logTextBox.setFormatter(file_formatter)
-        self.logTextBox.setLevel(logging.INFO)#getattr(logging,self.log_dia.log_level))
-        logging.getLogger().addHandler(self.logTextBox)
+        self.log_text_box.setFormatter(file_formatter)
+        self.log_text_box.setLevel(logging.INFO)  # getattr(logging,self.log_dia.log_level))
+        logging.getLogger().addHandler(self.log_text_box)
         self.log_dia.st.signal_ld_logging_level[str].connect(self._set_new_logging_level_from_dialog)
         self.log_dia.ld_ui.pushButton_log_clear.setIcon(self.icon_clear)
 
-
-    def _set_new_logging_level_from_dialog(self,text):
+    def _set_new_logging_level_from_dialog(self, text):
         print(text)
         self.log_dia.write_file_to_log(self.log_dia.pathandfile)
-        #self.logTextBox.setLevel(getattr(logging,self.log_dia.log_level))
-
-
+        # self.log_text_box.setLevel(getattr(logging,self.log_dia.log_level))
 
     def _set_dl_enable(self):
         """Sets all enabled/disabled 'DL Enable'"""
@@ -593,7 +581,9 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         """
         id_key_list, track_list = self._get_id_key_list_from_selection_results()
 
-        log.debug("TW results Rightclick Selected->  id_key_list: %s, track_list %s, track %s", id_key_list, track_list, track)
+        log.debug(
+            "TW results Rightclick Selected->  id_key_list: %s, track_list %s, track %s", id_key_list, track_list, track
+        )
         if len(track) == 0:
             return
         self.item_menu = QtWidgets.QMenu()
@@ -611,7 +601,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             menu_item02.triggered.connect(lambda: self._remove_file(track))
         self.item_menu.move(apos)
         self.item_menu.show()
- 
+
     # Right click Menu
     def _table_item_right_clicked(self, track: list, apos: QtCore.QPoint):
         """Displays right click menu where item was right clicked
@@ -716,7 +706,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                 dl_enabled_list.append(an_id)
         return dl_enabled_list
 
-    def _table_item_comboboxindexchanged(self,index:int, currenttxt:str, track:list):
+    def _table_item_comboboxindexchanged(self, index: int, currenttxt: str, track: list):
         """Sets selected resoulution on index changed
 
         Args:
@@ -724,7 +714,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             currenttxt (str): selected text
             track (list): track list of item in table
         """
-        print("&& "*50,index, currenttxt, track)
+        print("&& " * 50, index, currenttxt, track)
         # try:
         #     _=index
         #     url_id=track[0]
@@ -747,8 +737,8 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         #             break
         # except Exception as eee:
         #     print(eee)
-        print("&& "*50,"----->exit here")
-    
+        print("&& " * 50, "----->exit here")
+
     # def _get_resolution_combobox_value(self,url_id) -> str:
     #     """Gets actual value in the combobox for url_id
 
@@ -771,48 +761,50 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
     #                 except RuntimeError as err:
     #                     log.error("Can't read Combobox: %s",err)
     #                 break
-    #     return current_text            
-        
-    def _add_resolution_combobox(self,url_id,url:str):
+    #     return current_text
+
+    def _add_resolution_combobox(self, url_id, url: str):
         """Adds combobox to item with the resolution selection
 
         Args:
             url_id (any): Url id of item
             url (str): url to search for resolutions
         """
-        
+
         combobox = QtWidgets.QComboBox()
         # Tablewidget deletes objects after using setCellwidget, you can not set different comboboxes
         # now combobox objects are delegated to cell information.
         first_progressive = None
-        for nnn,ppp in enumerate(self._get_available_resolutions_progressive(url)):
-            if nnn==0:
-                first_progressive=str(ppp)
+        for nnn, ppp in enumerate(self._get_available_resolutions_progressive(url)):
+            if nnn == 0:
+                first_progressive = str(ppp)
             combobox.addItem(str(ppp))
-        for nnn,aaa in enumerate(self._get_available_resolutions_adaptive(url)):
+        for nnn, aaa in enumerate(self._get_available_resolutions_adaptive(url)):
             combobox.addItem(str(aaa))
-        
-        #set best progressive as default
+
+        # set best progressive as default
         if first_progressive:
-            index= combobox.findText(first_progressive,QtCore.Qt.MatchFixedString)
+            index = combobox.findText(first_progressive, QtCore.Qt.MatchFixedString)
             combobox.setCurrentIndex(index)
             track = [url_id, "Resolution"]
             self.twf.set_tracked_value_to_dict(track, first_progressive, self.url_struct, "", False)
             # track = [url_id, "Selected Resolution Codec"]
             # self.twf.set_tracked_value_to_dict(track, first_progressive, self.url_struct, "", False)
-        
+
         # add widget to twf
         it_w_dict = self.twf.itemwidget_dict
         track_list = it_w_dict["track_list"]
         track_list.append([url_id, "Resolution"])
         widget_list = it_w_dict["widget_list"]
-        widget_list.append(combobox) 
+        widget_list.append(combobox)
         it_w_dict.update({"track_list": track_list})
         it_w_dict.update({"widget_list": widget_list})
         self.twf.set_items_widgets(it_w_dict)
         print(self.twf.itemwidget_dict)
 
-    def _add_remove_downloading_icons_(self,id_key_list:list, add_to:bool,the_icon:QtGui.QIcon = None,the_twf:int=1):
+    def _add_remove_downloading_icons_(
+        self, id_key_list: list, add_to: bool, the_icon: QtGui.QIcon = None, the_twf: int = 1
+    ):
         """Adds icons to being dowloaded items
 
         Args:
@@ -820,43 +812,44 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             add_to (bool) : True adds icons,False remove them
             the_twf (int): Tablewidget twf=1 and twf2=2. Defauelt 1
         """
-        if the_twf==1:
+        it_icon_dict = {}
+        if the_twf == 1:
             it_icon_dict = self.twf.icon_dict.copy()
-        elif the_twf==2:
+        elif the_twf == 2:
             it_icon_dict = self.twf2.icon_dict.copy()
         track_list = it_icon_dict["track_list"]
-        icon_list = it_icon_dict["icon_list"] 
+        icon_list = it_icon_dict["icon_list"]
         if add_to and the_icon is not None:
-           # add icon to twf
+            # add icon to twf
             for id_key in id_key_list:
-                track= [id_key,"DL Status"]
+                track = [id_key, "DL Status"]
                 track_list.append(track)
                 icon_list.append(the_icon)
-            it_icon_dict.update({"track_list":track_list})
-            it_icon_dict.update({"icon_list":icon_list})
+            it_icon_dict.update({"track_list": track_list})
+            it_icon_dict.update({"icon_list": icon_list})
         elif not add_to:
-            pos_to_del_list=[]
+            pos_to_del_list = []
             for id_key in id_key_list:
-                del_track= [id_key,"DL Status"]
-                for pos,track in enumerate(track_list):
-                    if self._is_same_list(del_track,track):
+                del_track = [id_key, "DL Status"]
+                for pos, track in enumerate(track_list):
+                    if self._is_same_list(del_track, track):
                         pos_to_del_list.append(pos)
             new_track_list = []
             new_icon_list = []
-            for pos, (a_track, an_icon) in enumerate(zip(track_list,icon_list)):
+            for pos, (a_track, an_icon) in enumerate(zip(track_list, icon_list)):
                 if pos not in pos_to_del_list:
                     new_track_list.append(a_track)
                     new_icon_list.append(an_icon)
-            it_icon_dict={}
-            it_icon_dict.update({"track_list":new_track_list})
-            it_icon_dict.update({"icon_list":new_icon_list})
-        if the_twf==1:  
+            it_icon_dict = {}
+            it_icon_dict.update({"track_list": new_track_list})
+            it_icon_dict.update({"icon_list": new_icon_list})
+        if the_twf == 1:
             self.twf.set_items_icons(it_icon_dict)
-            self._main_refresh_tablewidget()   
-        elif the_twf==2: 
+            self._main_refresh_tablewidget()
+        elif the_twf == 2:
             self.twf2.set_items_icons(it_icon_dict)
-            self._main_refresh_tablewidget2()  
-                
+            self._main_refresh_tablewidget2()
+
     def _download_selected_items(self, id_key_list: list):
         """
         Downloads the items in the list, starts a thread for each download
@@ -869,7 +862,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         if len(id_key_list) != len(id_list):
             log.info("Some URLs are not Download enabled, downloading only %s", id_list)
         id_key_list = id_list  # Download only enabled
-        self._add_remove_downloading_icons_(id_key_list,True,self.icon_download_selected)
+        self._add_remove_downloading_icons_(id_key_list, True, self.icon_download_selected)
         # prepare dict
         if len(self.threads_event_list) <= 5 and len(id_key_list) > 0:
             file_properties_dict = {}
@@ -953,25 +946,24 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         for pair in thread_index_url_id_list:
             url_id_list.append(pair[1])
             # print("url_id->", pair[1], "thrindex->", pair[0])
-        self._add_remove_downloading_icons_(url_id_list,False,None)
+        self._add_remove_downloading_icons_(url_id_list, False, None)
         self._add_item_to_url_struct_results(url_id_list)
         self._remove_url_items(url_id_list, False)
 
     def _add_item_to_url_struct_results(self, url_id_list: list):
-        """Adds item to url_struct_results dictionary and to twf2
-        """
+        """Adds item to url_struct_results dictionary and to twf2"""
         for url_id in url_id_list:
             results_dict = {}
             for item, item_value in self.url_struct[url_id].items():
                 if item not in ["DL Enable"]:
                     results_dict.update({item: item_value})
-            results_id_list=self.a_ufun.get_dict_key_list(self.url_struct_results)
-            results_url_id=self.a_ufun.get_unique_id(url_id,results_id_list,"URL")
+            results_id_list = self.a_ufun.get_dict_key_list(self.url_struct_results)
+            results_url_id = self.a_ufun.get_unique_id(url_id, results_id_list, "URL")
             self.url_struct_results.update({results_url_id: results_dict})
             # self.url_id_counter = self.url_id_counter + 1
         self.twf2.set_items_icons()
-        results_id_list=self.a_ufun.get_dict_key_list(self.url_struct_results)
-        self._add_remove_downloading_icons_(results_id_list,True,self.icon_main,2)
+        results_id_list = self.a_ufun.get_dict_key_list(self.url_struct_results)
+        self._add_remove_downloading_icons_(results_id_list, True, self.icon_main, 2)
         self._main_refresh_tablewidget2()
 
     def _main_refresh_tablewidget2(self):
@@ -1008,8 +1000,8 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                     break
             thread_index_url_id_list.append((thread_index, url_id))
         return thread_index_url_id_list
-    
-    def _get_complete_output_file(self, track: list)->str:
+
+    def _get_complete_output_file(self, track: list) -> str:
         """Gets the full path to item  in result list
 
         Args:
@@ -1018,25 +1010,29 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         Returns:
             str: path and file string if file exists, None if it does not exist
         """
-        url_id=track[0]
-        #url=self.url_struct_results[url_id]["URL"]
-        filename=self.url_struct_results[url_id]["File Name"]
-        title=self.url_struct_results[url_id]["File Name"]
-        fileprefix=self.url_struct_results[url_id]["File Name Prefix"]
-        dl_path=self.url_struct_results[url_id]["Download Path"]
-        #resolution=self.url_struct_results[url_id]["Resolution"]
-        #items_resolution=thread_download_pytubefix.ThreadQueueDownloadStream._get_itags_from_resolution_txt(resolution)
+        url_id = track[0]
+        # url=self.url_struct_results[url_id]["URL"]
+        filename = self.url_struct_results[url_id]["File Name"]
+        title = self.url_struct_results[url_id]["File Name"]
+        fileprefix = self.url_struct_results[url_id]["File Name Prefix"]
+        dl_path = self.url_struct_results[url_id]["Download Path"]
+
         if not filename:
-            filename=self.ptf.clean_filename(title,'áéíóúüöäÜÖÄÁÉÍÓÚçÇabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -')+'.mp4'
+            filename = (
+                self.ptf.clean_filename(
+                    title, "áéíóúüöäÜÖÄÁÉÍÓÚçÇabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -"
+                )
+                + ".mp4"
+            )
         if not dl_path:
-            dl_path=self.download_path
-        filename=fileprefix+filename
-        complete_output_path=os.path.join(dl_path,filename)    
+            dl_path = self.download_path
+        filename = fileprefix + filename
+        complete_output_path = os.path.join(dl_path, filename)
         if not os.path.exists(complete_output_path):
             log.warning("File {complete_output_path} does not exist! :(")
             return None
         return complete_output_path
-    
+
     def _play_file(self, track: list):
         """
         Opens a video file using the default media player.
@@ -1044,21 +1040,20 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         Args:
             video_path (str): The path to the video file.
         """
-        video_path=self._get_complete_output_file(track)
+        video_path = self._get_complete_output_file(track)
         if not video_path:
             return
         # Check if the operating system is Windows or Linux
-        if os.name == 'nt':  # Windows
+        if os.name == "nt":  # Windows
             # Use the default media player for Windows
             log.info("Opening in default Media Player...")
             os.startfile(video_path)
-        elif os.name == 'posix':  # Linux and macOS
+        elif os.name in ["posix", "linux"]:  # Linux and macOS
             # Use the `xdg-open` command to open the file with a suitable application
             log.info("Opening video using xdg-open...")
-            subprocess.run(['xdg-open', video_path])
+            subprocess.run(["xdg-open", video_path], check=False)
         else:
-            raise Exception(f"Unsupported operating system: {os.name}")
-        
+            raise NotImplementedError(f"Unsupported operating system: {os.name}")
 
     def _remove_file(self, track: list, prompt_msgbox: bool = True):
         """Removes downloaded file from computer
@@ -1067,10 +1062,10 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             track (list): item to remove
             prompt_msgbox (bool, optional): Prompt message box yes/no to delete. Defaults to True.
         """
-        url_id=track[0]
-        url=self.url_struct_results[url_id]["URL"]
-        title=self.url_struct_results[url_id]["File Name"]
-        complete_output_path=self._get_complete_output_file(track)
+        url_id = track[0]
+        url = self.url_struct_results[url_id]["URL"]
+        title = self.url_struct_results[url_id]["File Name"]
+        complete_output_path = self._get_complete_output_file(track)
         if not complete_output_path:
             return
         if prompt_msgbox:
@@ -1080,12 +1075,11 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                 return
         try:
             os.remove(complete_output_path)
-            log.info("Removed File {complete_output_path} .. bye bye")       
+            log.info("Removed File {complete_output_path} .. bye bye")
             self._remove_url_items_results([url_id])
-        except (FileExistsError,FileNotFoundError,PermissionError) as eee:
-            log.error("File could not be deleted: %s",eee)
-        
-    
+        except (FileExistsError, FileNotFoundError, PermissionError) as eee:
+            log.error("File could not be deleted: %s", eee)
+
     def _log_captions(self, track: list):
         """Prints caption to log
 
@@ -1093,15 +1087,14 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             track (list): url track
         """
         self.a_dialog.set_default_dir(self.download_path)
-        filename=self.a_dialog.save_file_dialog(2)
-        #language='en'
+        filename = self.a_dialog.save_file_dialog(2)
+        # language='en'
         if filename:
             self._enable_disable_obj_on_process(False)
-            url_id=track[0]
-            url=self.url_struct[url_id]["URL"]
-            self.ptf.save_subtitles_to_file(url,filename,None) # will save all
+            url_id = track[0]
+            url = self.url_struct[url_id]["URL"]
+            self.ptf.save_subtitles_to_file(url, filename, None)  # will save all
         self._enable_disable_obj_on_process(True)
-
 
     def _dump_information(self, track: list):
         """Reads info from file and dumps it into a json file.
@@ -1109,28 +1102,27 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         Args:
             track (list): url track
         """
-        filename=self.a_dialog.save_file_dialog(8)
+        filename = self.a_dialog.save_file_dialog(8)
         if filename:
             self._enable_disable_obj_on_process(False)
-            url_id=track[0]
-            url=self.url_struct[url_id]["URL"]
-            info_dict=self.ptf.get_url_info(url)
-            info_dict=self.a_ufun.convert_types_to_stringsin_dict(info_dict,pytubefix.Caption)
-            info_dict=self.a_ufun.convert_types_to_stringsin_dict(info_dict,pytubefix.CaptionQuery)
-            
-            info_dict=self.a_ufun.convert_types_to_stringsin_dict(info_dict,pytubefix.metadata.YouTubeMetadata)
-            info_dict=self.a_ufun.convert_types_to_stringsin_dict(info_dict,datetime.datetime)
-            
+            url_id = track[0]
+            url = self.url_struct[url_id]["URL"]
+            info_dict = self.ptf.get_url_info(url)
+            info_dict = self.a_ufun.convert_types_to_stringsin_dict(info_dict, pytubefix.Caption)
+            info_dict = self.a_ufun.convert_types_to_stringsin_dict(info_dict, pytubefix.CaptionQuery)
 
-            for iiinfo in info_dict:
-                print(iiinfo,"-->",type(info_dict[iiinfo]),str(info_dict[iiinfo]))
+            info_dict = self.a_ufun.convert_types_to_stringsin_dict(info_dict, pytubefix.metadata.YouTubeMetadata)
+            info_dict = self.a_ufun.convert_types_to_stringsin_dict(info_dict, datetime.datetime)
+
+            # for iiinfo in info_dict:
+            #     print(iiinfo, "-->", type(info_dict[iiinfo]), str(info_dict[iiinfo]))
             fn = self.a_dialog.extract_filename(filename, False) + ".json"
             path = self.a_dialog.extract_path(filename)
             filename = os.path.join(path, fn)
             try:
                 # python dictionary with key value pairs
                 # create json object from dictionary
-                js = json.dumps(info_dict,default=vars)
+                js = json.dumps(info_dict, default=vars)
                 # open file for writing, "w"
                 with open(filename, "w", encoding="utf-8") as fff:
                     # write json object to file
@@ -1144,21 +1136,19 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                 log.error(e)
             self._enable_disable_obj_on_process(True)
 
-
-
     def _select_special_filename_path(self, track: list):
         """Sets a different download path than the Default path"""
-        self.a_dialog.set_filter("mp4","All Files (*);;Video Files (*.mp4)","Video Files (*.mp4)",False)
-        url_id=track[0]
+        self.a_dialog.set_filter("mp4", "All Files (*);;Video Files (*.mp4)", "Video Files (*.mp4)", False)
+        url_id = track[0]
         if self.url_struct[url_id]["Download Path"]:
-            path_def=self.url_struct[url_id]["Download Path"]
+            path_def = self.url_struct[url_id]["Download Path"]
         else:
-            path_def=self.download_path
+            path_def = self.download_path
         self.a_dialog.set_default_dir(path_def)
         filenamepath = self.a_dialog.save_file_dialog("mp4")
         if filenamepath:
-            dl_dir = self.a_dialog.extract_path(filenamepath,True)
-            filename = self.a_dialog.extract_filename(filenamepath,True)
+            dl_dir = self.a_dialog.extract_path(filenamepath, True)
+            filename = self.a_dialog.extract_filename(filenamepath, True)
             download_path = ""
             if len(dl_dir) > 0:
                 if self.download_path != dl_dir:
@@ -1171,15 +1161,15 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                 self.twf.set_tracked_value_to_dict(track, str(download_path), self.url_struct, "", False)
             log.info("Setting to %s File Name: %s", url_id, filename)
             track = [url_id, "File Name"]
-            self.twf.set_tracked_value_to_dict(track, str(filename), self.url_struct, "", False)    
-                    # mask returns it to ""
-                    # self.twf.set_value_and_trigger_data_change(track,str(download_path),str(str),"")
+            self.twf.set_tracked_value_to_dict(track, str(filename), self.url_struct, "", False)
+            # mask returns it to ""
+            # self.twf.set_value_and_trigger_data_change(track,str(download_path),str(str),"")
             # Refresh and update
             self._main_refresh_tablewidget()
             self._update_shared_struct_options()
         else:
             # restore default path
-            self.a_dialog.set_default_dir(self.download_path)   
+            self.a_dialog.set_default_dir(self.download_path)
 
     def _select_special_download_path(self, id_key_list: list):
         """Sets a different download path than the Default path"""
@@ -1240,7 +1230,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             self.url_struct = self.a_ufun.get_dict_wo_key(self.url_struct, a_key)
             self.url_struct_options = self.a_ufun.get_dict_wo_key(self.url_struct_options, a_key)
         self._main_refresh_tablewidget()
-    
+
     def _remove_url_items_results(self, id_key_list: list, prompt_msgbox: bool = False):
         """Removes items from table results
 
@@ -1262,7 +1252,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             self.url_struct_results = self.a_ufun.get_dict_wo_key(self.url_struct_results, a_key)
         self._main_refresh_tablewidget2()
 
-    def _get_available_resolutions_progressive(self,url:str)->list:
+    def _get_available_resolutions_progressive(self, url: str) -> list:
         """Gets the resolutions for progressive download
 
         Args:
@@ -1270,20 +1260,20 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         Returns:
             list: [itag,resolution,(codec_video,codec_audio)]
         """
-        ys_p,_=self.ptf.get_streams_available(url)
-        resoulutions=[]
+        ys_p, _ = self.ptf.get_streams_available(url)
+        resoulutions = []
         if ys_p:
             for ppp in ys_p:
-                #print("PRog:",ppp)
-                i_tag=self.a_ufun.extract_value("itag=",str(ppp))
-                c_aud=self.a_ufun.extract_value("acodec=",str(ppp))
-                c_vid=self.a_ufun.extract_value("vcodec=",str(ppp))
-                r_vid=self.a_ufun.extract_value("res=",str(ppp))
+                # print("PRog:",ppp)
+                i_tag = self.a_ufun.extract_value("itag=", str(ppp))
+                c_aud = self.a_ufun.extract_value("acodec=", str(ppp))
+                c_vid = self.a_ufun.extract_value("vcodec=", str(ppp))
+                r_vid = self.a_ufun.extract_value("res=", str(ppp))
                 if r_vid and r_vid not in resoulutions:
-                    resoulutions.append([i_tag,r_vid,(c_vid,c_aud)])
+                    resoulutions.append([i_tag, r_vid, (c_vid, c_aud)])
         return resoulutions
-    
-    def _get_available_resolutions_adaptive(self,url:str) ->list:
+
+    def _get_available_resolutions_adaptive(self, url: str) -> list:
         """Gets the combinations of possible video-audio resolutions for adaptive download
 
         Args:
@@ -1291,27 +1281,28 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         Returns:
             list: [(itag_video,itag_audio),(resolution,audiobitrate),(codec_video,codec_audio)]
         """
-        _, ys_a=self.ptf.get_streams_available(url)
-        resoulutions_vid=[]
-        resoulutions_aud=[]
+        _, ys_a = self.ptf.get_streams_available(url)
+        resoulutions_vid = []
+        resoulutions_aud = []
         if ys_a:
-            for nnn,ppp in enumerate(ys_a):
-                i_tag=self.a_ufun.extract_value("itag=",str(ppp))
-                r_aud=self.a_ufun.extract_value("abr=",str(ppp))
+            for ppp in ys_a:
+                i_tag = self.a_ufun.extract_value("itag=", str(ppp))
+                r_aud = self.a_ufun.extract_value("abr=", str(ppp))
                 if r_aud and r_aud not in resoulutions_aud:
-                    c_aud=self.a_ufun.extract_value("acodec=",str(ppp))
-                    resoulutions_aud.append([i_tag,r_aud,c_aud])
-                r_vid=self.a_ufun.extract_value("res=",str(ppp))
+                    c_aud = self.a_ufun.extract_value("acodec=", str(ppp))
+                    resoulutions_aud.append([i_tag, r_aud, c_aud])
+                r_vid = self.a_ufun.extract_value("res=", str(ppp))
                 if r_vid and r_vid not in resoulutions_vid:
-                    c_vid=self.a_ufun.extract_value("vcodec=",str(ppp))
-                    resoulutions_vid.append([i_tag,r_vid,c_vid])
-        resoulutions=[]
+                    c_vid = self.a_ufun.extract_value("vcodec=", str(ppp))
+                    resoulutions_vid.append([i_tag, r_vid, c_vid])
+        resoulutions = []
         for vid_res in resoulutions_vid:
             for aud_res in resoulutions_aud:
-                resoulutions.append([(vid_res[0],aud_res[0]),(vid_res[1],aud_res[1]),(vid_res[2],aud_res[2])])
+                resoulutions.append([(vid_res[0], aud_res[0]), (vid_res[1], aud_res[1]), (vid_res[2], aud_res[2])])
         return resoulutions
-    
-    def _do_debug_stuff(self,track):
+
+    def _do_debug_stuff(self, track):
+        """do debug stuff"""
         # url=self.url_struct[track[0]]["URL"]
         # ys_p,ys_a=self.ptf.get_streams_available(url)
         # for nnn,ppp in enumerate(ys_p):
@@ -1324,9 +1315,9 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         # print("-"*20)
         # for nnn,aaa in enumerate(self._get_available_resolutions_adaptive(url)):
         #     print("Adap:",nnn,aaa)
-        print("7@7"*20)
+        print("7@7" * 20)
+        print(track)
         # print(self._get_resolution_combobox_value(track[0]))
-        
 
     def _toggle_bool_item(self, track: list):
         """Toggles the value of a bool item in the Table
@@ -1334,14 +1325,14 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         Args:
             track (list): track of item
         """
-        self._do_debug_stuff(track)
+        # self._do_debug_stuff(track)
         value_of_rc = self.twf.get_tracked_value_in_struct(track, self.url_struct)
         is_itm_bool = self.twf.check_restrictions.check_type(str(bool), value_of_rc, True)
         if is_itm_bool:
             log.debug("Toggle Triggered %s", track)
             value_of_rc = self.twf.check_restrictions.set_type_to_value(value_of_rc, str(bool), "")
-            self.twf.set_value_and_trigger_data_change(track, not value_of_rc, str(bool),"")
-        self._main_refresh_tablewidget() 
+            self.twf.set_value_and_trigger_data_change(track, not value_of_rc, str(bool), "")
+        self._main_refresh_tablewidget()
 
     def _get_id_key_list_from_selection(self) -> tuple[list, list]:
         """Gets a list of keys of the items selected
@@ -1366,7 +1357,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                 id_key_list.append(id_key)
                 track_list.append(track)
         return id_key_list, track_list
-    
+
     def _get_id_key_list_from_selection_results(self) -> tuple[list, list]:
         """Gets a list of keys of the items selected for twf2
 
@@ -1385,7 +1376,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                 track_list.append(track)
         return id_key_list, track_list
 
-    def _enable_disable_obj_on_process(self,enable:bool):
+    def _enable_disable_obj_on_process(self, enable: bool):
         """Enables disables objects while processing actions so user can not make UI
 
         Args:
@@ -1399,8 +1390,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.actionSave_URL_list.setEnabled(enable)
 
     def _pushbutton_url_pressed(self):
-        """On pressed url button add to list
-        """
+        """On pressed url button add to list"""
         self._enable_disable_obj_on_process(False)
         # fast regex check
         the_link = self.lineEdit_url.text()
@@ -1432,21 +1422,18 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         return self.does_url_exist(url)
 
     def get_id_list(self):
-        """Get the ids of the items in view
-        """
+        """Get the ids of the items in view"""
         return self.a_ufun.get_dict_key_list(self.url_struct)
 
     def is_id_taken(self, an_id) -> bool:
-        """Check if the id is taken
-        """
+        """Check if the id is taken"""
         idlist = self.get_id_list()
         if an_id in idlist:
             return True
         return False
 
     def add_item_to_url_struct(self, url: str):
-        """Adds item to list
-        """
+        """Adds item to list"""
         self.twf.tablewidgetobj.clearSelection()
         vid_list, vid_list_url = self.ptf.get_any_yt_videos_list(url)
         for vid_title, vid_url in zip(vid_list, vid_list_url):
@@ -1454,7 +1441,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             self.url_struct.update(
                 {
                     new_id: {
-                        "Index": self.url_id_counter, #int(new_id.replace("URL","")),
+                        "Index": self.url_id_counter,  # int(new_id.replace("URL","")),
                         "DL Status": "",
                         "Title": vid_title,
                         "URL": vid_url,
@@ -1467,11 +1454,11 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                         "File Name": "",
                         "File Name Prefix": "",
                         "Download Path": "",
-                        #"Selected Resolution Codec":"",
+                        # "Selected Resolution Codec":"",
                     },
                 }
             )
-            self._add_resolution_combobox(new_id,vid_url)
+            self._add_resolution_combobox(new_id, vid_url)
             self.url_id_counter = self.url_id_counter + 1
         # This sets options dict
         self._update_shared_struct_options()
@@ -1504,8 +1491,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         return exception_tuple
 
     def does_url_exist(self, url):
-        """Check if the given url exists or not
-        """
+        """Check if the given url exists or not"""
         try:
             response = requests.get(url, timeout=10)
         except self._get_request_exceptions_tuple() as eee:
@@ -1552,21 +1538,21 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             for key in a_struct:
                 url_id = self.a_ufun.get_unique_id("URL0", self.get_id_list(), "URL")
                 is_valid, what_is = self.ptf.is_yt_valid_url(a_struct[key]["URL"])
-                if is_valid and what_is == 'video':
+                if is_valid and what_is == "video":
                     # this sets the actual structure
                     self.add_item_to_url_struct(a_struct[key]["URL"])
                     # set single items of the structure
                     for item, item_value in a_struct[key].items():
-                        self.url_struct[url_id][item]= item_value
-                    #self.url_id_counter = self.url_id_counter + 1
-                if is_valid and what_is in ['channel','playlist']:
+                        self.url_struct[url_id][item] = item_value
+                    # self.url_id_counter = self.url_id_counter + 1
+                if is_valid and what_is in ["channel", "playlist"]:
                     self.add_item_to_url_struct(a_struct[key]["URL"])
 
             self._update_shared_struct_options()
             self._main_refresh_tablewidget()
 
         except (AttributeError, KeyError, IndexError) as eee:
-            log.error("Dictionary has incorrect format: %s",eee)
+            log.error("Dictionary has incorrect format: %s", eee)
         self._enable_disable_obj_on_process(True)
         return newstruct
 
@@ -1603,18 +1589,16 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                     log.error(e)
 
     def set_download_path(self):
-        """Sets the path for download and stores the configuration
-        """
+        """Sets the path for download and stores the configuration"""
         dl_dir = self.a_dialog.open_directory_dialog(caption="Select Download directory")
         log.info("Download dir: %s", dl_dir)
-        self.general_config["Last_Path_for_Download"] = dl_dir
+        self.general_config["Last_Path_for_Download"] = dl_dir[0]
         self.set_general_config_to_yml_file()
         self.download_path = self.general_config["Last_Path_for_Download"]
         self.label_DownloadPath.setText(f"Downloading to: {self.download_path}")
 
     def set_general_config_to_yml_file(self):
-        """Saves the general configuration
-        """
+        """Saves the general configuration"""
         try:
             if os.path.exists(self.path_config_file):
                 with open(self.path_config_file, "w", encoding="UTF-8") as file:
@@ -1625,8 +1609,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             log.error("Saving yml configuration file!")
 
     def _lineedit_url_changed(self):
-        """When line edit changed
-        """
+        """When line edit changed"""
         urlexists = self.does_url_exist(self.lineEdit_url.text())
         if urlexists:
             self.lineEdit_url.setToolTip("Exists!")
@@ -1634,8 +1617,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             self.lineEdit_url.setToolTip("")
 
     def _set_splitter_pos(self, pos, per=None):
-        """Sets the position of the splitter
-        """
+        """Sets the position of the splitter"""
         sizes = self.splitter.sizes()
         tot = sizes[1] + sizes[0]
         if per is not None and 0 <= per <= 1:  # per >= 0 and per <= 1:
@@ -1648,8 +1630,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.splitter.adjustSize()
 
     def _set_path_labels(self):
-        """Set texts and labels in Gui
-        """
+        """Set texts and labels in Gui"""
         self.lineEdit_url.setToolTip(
             "Type YT url,channel,playlist or comma separated list in format '[URL1, ..., URLN]'"
         )
@@ -1663,8 +1644,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.pushButton_3.setText("Toggle DL Enable")
 
     def show_aboutbox(self):
-        """Shows About box
-        """
+        """Shows About box"""
         title = "About YT Downloader PytubeFix Tool"
         amsg = (
             '<h1 style="font-size:160%;color:red;">Programmed with coffee and love</h1>'
@@ -1678,7 +1658,8 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             + __creationdate__
             + '</p> <p style="color:black;">pytubefix: '
             + __pytubefix__
-            + " V:" + str(version('pytubefix'))
+            + " V:"
+            + str(version("pytubefix"))
             + "</p>"
         )
         # msgbox = QMessageBox.about(main_window,title,amsg)
@@ -1688,8 +1669,12 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         msgbox.setWindowIcon(self.icon_main)
         if self.icon_main_pixmap is not None:
             thepm = self.icon_main_pixmap.scaled(
-                160, 160, QtCore.Qt.KeepAspectRatio, QtCore.Qt.TransformationMode.SmoothTransformation
-            )  # QtCore.Qt.FastTransformation)
+                160,
+                160,
+                QtCore.Qt.KeepAspectRatio,
+                QtCore.Qt.TransformationMode.SmoothTransformation,  # pylint: disable= no-member
+            )
+            # QtCore.Qt.FastTransformation)
             # thepm.scaledToWidth(90,QtCore.Qt.TransformationMode.SmoothTransformation)
             #  QtCore.Qt.TransformationMode.SmoothTransformation) #QtCore.Qt.AspectRatioMode.KeepAspectRatio)
             msgbox.setIconPixmap(thepm)
@@ -1703,7 +1688,7 @@ class MyWindow(QtWidgets.QMainWindow):
     Override Window events to close
     """
 
-    def closeEvent(self, event):
+    def closeEvent(self, event):  # pylint: disable= invalid-name
         """Close Event override
 
         Args:
@@ -1725,7 +1710,7 @@ class MyWindow(QtWidgets.QMainWindow):
 
             try:
                 ui.log_dia.d_log_dialog.close()
-            except Exception as e:
+            except:  # pylint: disable= bare-except
                 # log.error(e)
                 pass
             # kill threads
@@ -1737,7 +1722,7 @@ class MyWindow(QtWidgets.QMainWindow):
                     kill_ev.set()
                     q_dl_stream = threads[2]
                     q_dl_stream.join()
-                except:
+                except:  # pylint: disable= bare-except
                     pass
 
             event.accept()

@@ -12,13 +12,21 @@ import subprocess
 from PyQt5.QtWidgets import QFileDialog, QWidget, QMessageBox, QInputDialog
 from PyQt5.QtWidgets import QDialog, QStackedWidget, QListView, QLineEdit
 
+
 def get_file_manager_path():
-    if os.name == 'nt':  # Windows
-        return  os.path.join(os.getenv("WINDIR"), "explorer.exe") # "/c/Windows/Shell/explorer.exe"
-    elif os.name == 'posix' or os.name == 'linux':  # Linux/MacOS
+    """Get filemanager path
+
+    Raises:
+        OSError: not supported
+    Returns:
+        str: path of file manager in windows, linux, macos
+    """
+    if os.name == "nt":  # Windows
+        return os.path.join(os.getenv("WINDIR"), "explorer.exe")  # "/c/Windows/Shell/explorer.exe"
+    if os.name in ["posix", "linux"]:  # Linux/MacOS
         return "/usr/bin/xdg-open"
-    else:
-        raise OSError(f"Unsupported OS: {os.name}")
+    raise OSError(f"Unsupported OS: {os.name}")
+
 
 FILEBROWSER_PATH = get_file_manager_path()
 
@@ -122,7 +130,7 @@ class Dialogs(QWidget):
                     subprocess.run([FILEBROWSER_PATH, path], check=True)
                 elif os.path.isfile(path):
                     subprocess.run([FILEBROWSER_PATH, "/select,", path], check=True)
-            except (subprocess.CalledProcessError,subprocess.SubprocessError):
+            except (subprocess.CalledProcessError, subprocess.SubprocessError):
                 pass
 
     def set_default_dir(self, adir: str):
@@ -428,25 +436,52 @@ class Dialogs(QWidget):
         msgbox.setIcon(QMessageBox.Information)
         msgbox.setText(amsg)
         msgbox.exec_()
-    
-    def get_text_dialog(self, title: str, amsg: str) -> str:
-      text, ok = QInputDialog.getText(self, title, amsg)
-      if ok:
-         return str(text)
-      return None
-    
-    def get_int_dialog(self, title: str, amsg: str):
-      num,ok = QInputDialog.getInt(self, title, amsg)
-      if ok:
-         return num
-      return None
-    
-    def get_Item_Selection(self, items:tuple[str], title: str, amsg: str)->str:
-      if len(items)==0:
-          return None
-      item, ok = QInputDialog.getItem(self,  title, amsg, items, 0, False)
-			
-      if ok and item:
-         return str(item)
-      return None
 
+    def get_text_dialog(self, title: str, amsg: str) -> str:
+        """Makes text input Dialog
+
+        Args:
+            title (str): dialog title
+            amsg (str): dialog message
+
+        Returns:
+            str: input text
+        """
+        text = QInputDialog.getText(self, title, amsg)
+        if text[1]:
+            return str(text[0])
+        return None
+
+    def get_int_dialog(self, title: str, amsg: str):
+        """Makes int input dialog
+
+        Args:
+            title (str): dialog title
+            amsg (str): dialog message
+
+        Returns:
+            int: input value
+        """
+        num = QInputDialog.getInt(self, title, amsg)
+        if num[1]:
+            return num[0]
+        return None
+
+    def get_item_selection(self, items: list[str], title: str, amsg: str) -> str:
+        """Selection input dialog
+
+        Args:
+            items (list[str]): item list for selecting
+            title (str): dialog title
+            amsg (str): dialog message
+
+        Returns:
+            str: selection
+        """
+        if len(items) == 0:
+            return None
+        selection = QInputDialog.getItem(self, title, amsg, items, current=0, editable=False)
+
+        if selection[1]:
+            return str(selection[0])
+        return None
