@@ -26,6 +26,8 @@ To do:
 - Save downloaded list.
 - Allow simple URL list as csv or txt file input.
 
+Modified code from Potoken generator originally from [youtube-trusted-session-generator][pogen]. Modified to generate file as required.
+
 ---------------------------------------------------------------------------------------
 
 ![Python Logo](https://github.com/fedetony/yt_download_pytubefix/blob/master/img/main_icon48.png "GUI pytubefix V1.0beta by FG") If you like my work consider [supporting me!][sp]
@@ -37,4 +39,6 @@ G1(junas) Cesium: D9CFSvUHQDJJ4iFExVU4fTMAidADV8kedabeqtV6o3CS
 [Github web page][wp].
 
 [wp]: https://github.com/fedetony
+
+[pogen]: https://github.com/iv-org/youtube-trusted-session-generator
 

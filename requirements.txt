@@ -5,3 +5,6 @@ python_vlc==3.0.20123
 pytubefix
 PyYAML==6.0.2
 requests==2.28.2
+nodriver==0.32
+undetected-chromedriver==3.5.5
+websockets==13.1
