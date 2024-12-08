@@ -1075,7 +1075,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                 return
         try:
             os.remove(complete_output_path)
-            log.info("Removed File {complete_output_path} .. bye bye")
+            log.info(f"Removed File {complete_output_path} .. bye bye")
             self._remove_url_items_results([url_id])
         except (FileExistsError, FileNotFoundError, PermissionError) as eee:
             log.error("File could not be deleted: %s", eee)
