@@ -2,6 +2,7 @@ import re
 import os
 import json
 from pytubefix import YouTube, Playlist, Stream
+from pytubefix.innertube import InnerTube
 from pytubefix.cli import on_progress
 from pytubefix import Channel,Caption
 
@@ -15,6 +16,8 @@ from moviepy.audio.io.AudioFileClip import AudioFileClip
 import class_file_dialogs
 
 ALLOWED_CHARS = 'áéíóúüöäÜÖÄÁÉÍÓÚçÇabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -'
+
+CLIENT=InnerTube().client_name
 
 class use_pytubefix(QWidget):   
     download_start=QtCore.pyqtSignal(str,str)
@@ -126,7 +129,7 @@ class use_pytubefix(QWidget):
     #clients: WEB, WEB_EMBED, WEB_MUSIC, WEB_CREATOR, WEB_SAFARI, ANDROID, ANDROID_MUSIC, ANDROID_CREATOR, ANDROID_VR, ANDROID_PRODUCER
     # , ANDROID_TESTSUITE, IOS, IOS_MUSIC, IOS_CREATOR, MWEB, TV_EMBED, MEDIA_CONNECT
 
-    def get_yt_video_from_url(self,url,client='WEB',use_po_token=False): #'WEB_CREATOR'):
+    def get_yt_video_from_url(self,url,client=CLIENT,use_po_token=True): #'WEB_CREATOR'):
         try:
             #if client=='WEB':
             #    yt = YouTube(url, client=client, use_po_token=True, on_progress_callback = self._on_progress)
