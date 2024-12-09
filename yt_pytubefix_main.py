@@ -153,7 +153,6 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                 self.download_path = self.general_config["Last_Path_for_Download"][0]
             if isinstance(self.general_config["Last_Path_for_Download"],str):
                 self.download_path = self.general_config["Last_Path_for_Download"]
-            print("------------------------->",self.download_path)
             if not os.path.exists(self.download_path):
                 self.download_path = self.app_path
         except (TypeError, KeyError, IndexError):
