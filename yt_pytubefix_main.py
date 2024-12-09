@@ -148,7 +148,12 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.app_path = self.a_dialog.get_app_path()
         self.general_config = self.get_general_config()
         try:
-            self.download_path = self.general_config["Last_Path_for_Download"][0]
+            self.download_path = ""
+            if isinstance(self.general_config["Last_Path_for_Download"],list):
+                self.download_path = self.general_config["Last_Path_for_Download"][0]
+            if isinstance(self.general_config["Last_Path_for_Download"],str):
+                self.download_path = self.general_config["Last_Path_for_Download"]
+            print("------------------------->",self.download_path)
             if not os.path.exists(self.download_path):
                 self.download_path = self.app_path
         except (TypeError, KeyError, IndexError):
@@ -1591,10 +1596,16 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
     def set_download_path(self):
         """Sets the path for download and stores the configuration"""
         dl_dir = self.a_dialog.open_directory_dialog(caption="Select Download directory")
+        if not dl_dir:
+            return
         log.info("Download dir: %s", dl_dir)
         self.general_config["Last_Path_for_Download"] = dl_dir[0]
         self.set_general_config_to_yml_file()
-        self.download_path = self.general_config["Last_Path_for_Download"]
+        self.download_path = self.app_path
+        if isinstance(self.general_config["Last_Path_for_Download"],list):
+            self.download_path = self.general_config["Last_Path_for_Download"][0]
+        if isinstance(self.general_config["Last_Path_for_Download"],str):
+            self.download_path = self.general_config["Last_Path_for_Download"]
         self.label_DownloadPath.setText(f"Downloading to: {self.download_path}")
 
     def set_general_config_to_yml_file(self):
