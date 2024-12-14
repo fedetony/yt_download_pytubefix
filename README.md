@@ -34,6 +34,8 @@ Modified code from Potoken generator originally from [youtube-trusted-session-ge
 
 G1(junas) Cesium: D9CFSvUHQDJJ4iFExVU4fTMAidADV8kedabeqtV6o3CS
 
+BTC Bitcoin: n211bgvuTVfwFoV6xwcHE5pPe4zWuQ27je
+
 [sp]: https://github.com/sponsors/fedetony
 
 [Github web page][wp].
