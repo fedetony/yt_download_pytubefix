@@ -486,7 +486,7 @@ class CheckRestrictions:
                 isok = False
         return isok
 
-    def string_to_list(self, astr: str) -> list:
+    def string_to_list(self, astr: str, with_brackets:bool=True) -> list:
         """Set string input to a list if the string resmbles a list with
         format [value1, Value2,.. , ValueN]
 
@@ -496,9 +496,9 @@ class CheckRestrictions:
         Returns:
             list: String as list or None
         """
-        return self._str_to_list(astr)
+        return self._str_to_list(astr,with_brackets)
 
-    def _str_to_list(self, astr: str) -> list:
+    def _str_to_list(self, astr: str, with_brackets:bool=True) -> list:
         """Set string input to a list if the string resmbles a list with
         format [value1, Value2,.. , ValueN]
 
@@ -509,7 +509,10 @@ class CheckRestrictions:
             list: String as list or None
         """
         try:
-            rema = re.search(r"^\[(.+,)*(.+)?\]$", astr)
+            if with_brackets:
+                rema = re.search(r"^\[(.+,)*(.+)?\]$", astr)
+            else:
+                rema = re.search(r"^\[?(.+,)*(.+)?\]?$", astr)
             splited = None
             if rema.group() is not None:
                 sss = astr.strip("[")

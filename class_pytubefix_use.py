@@ -180,7 +180,7 @@ class use_pytubefix(QWidget):
                 mp3: bool = False,
                 ):    
         yt = self.get_yt_video_from_url(url)
-        if yt:
+        if self._check_yt(yt):
             self.to_log.emit(f"PyTubefix Downloading: {yt.title}")
             if not mp3:
                 ys = yt.streams.get_highest_resolution()
@@ -208,7 +208,7 @@ class use_pytubefix(QWidget):
         yt = self.get_yt_video_from_url(url)
         ys_progressive=None
         ys_adaptive=None
-        if yt:
+        if self._check_yt(yt):
             try:
                 ys_progressive=yt.streams.filter(progressive=True,file_extension='mp4').desc()
             except:
@@ -246,7 +246,7 @@ class use_pytubefix(QWidget):
             self.to_log.emit(f"No resolution given, setting max resolution!")
             return self.download_video_best_quality(url, output_path,filename,filename_prefix,skip_existing,timeout,max_retries,mp3) 
         yt = self.get_yt_video_from_url(url,use_po_token=True)
-        if yt:
+        if self._check_yt(yt):
             if not filename:
                 filename=self.clean_filename(yt.title,ALLOWED_CHARS)
             self.to_log.emit(f"PyTubefix Downloading {selected_resolution}: {yt.title}")
@@ -349,7 +349,7 @@ class use_pytubefix(QWidget):
             mp3 (bool, optional): if mp3. Defaults to False.
         """  
         yt = self.get_yt_video_from_url(url,use_po_token=True)
-        if yt:
+        if self._check_yt(yt):
             if not filename:
                 filename=self.clean_filename(yt.title,ALLOWED_CHARS)
             self.to_log.emit(f"PyTubefix Downloading: {yt.title}")
@@ -438,7 +438,7 @@ class use_pytubefix(QWidget):
         """
         yt_info={}
         yt = self.get_yt_video_from_url(url)
-        if yt:
+        if self._check_yt(yt):
             yt_info.update({"title":yt.title})
             yt_info.update({"age_restricted":yt.age_restricted})
             yt_info.update({"author":yt.author})
@@ -477,10 +477,21 @@ class use_pytubefix(QWidget):
                 return self.get_playlist_video_list(url)
             elif yt_type == 'video':    
                 yt = self.get_yt_video_from_url(url)
-                if yt:
+                if self._check_yt(yt):
                     vid_list=[yt.title]
                     vid_list_url=[url]
         return vid_list, vid_list_url
+    
+    def _check_yt(self,yt):
+        """Checks if yt video is available and if is restricted ie requires login to view"""
+        try:
+            if yt:
+                _=yt.title
+                return True
+            return False
+        except Exception as eee:
+            self.to_log.emit("Error YT: {}".format(eee))
+        return False    
 
     def is_yt_valid_url(self,url: str):
         """
@@ -647,7 +658,7 @@ class use_pytubefix(QWidget):
             language (str, optional): Defaults to 'en'.
         """
         yt = self.get_yt_video_from_url(url)
-        if yt:
+        if self._check_yt(yt):
             try:
                 lang_list=[]
                 lang_listtxt=[]
@@ -673,7 +684,7 @@ class use_pytubefix(QWidget):
             language (str, optional): If NONE will find all captions available and store them in different filename with filename_XX.txt format. Defaults to 'en'.
         """
         yt = self.get_yt_video_from_url(url)
-        if yt:
+        if self._check_yt(yt):
             lang_list=[]
             lang_listtxt=[]
             for ct in yt.caption_tracks:

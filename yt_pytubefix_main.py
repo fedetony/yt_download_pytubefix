@@ -197,6 +197,10 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.url_id_counter = 0
         self.ongoing_download_url = None
         self.ongoing_download_title = None
+        self.label_log_show = QtWidgets.QLabel(self.statusbar)
+        self.label_log_show.setObjectName("label_log_show")
+        self.label_log_show.setText("Welcome to YTPytubefix Download!")
+        self.statusbar.addPermanentWidget(self.label_log_show)
 
     def setup_ui2(self, amain_window: QtWidgets.QMainWindow):
         """Start main
@@ -473,6 +477,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         Args:
              log_msg (str): message
         """
+        self.label_log_show.setText(log_msg)
         if "error" in log_msg.lower():
             if self.ongoing_download_title:
                 log.error("Error while downloading %s", self.ongoing_download_title)
@@ -1399,15 +1404,18 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         # fast regex check
         the_link = self.lineEdit_url.text()
         the_link = the_link.strip()
-        link_list = self.twf.check_restrictions.string_to_list(the_link)
+        link_list = self.twf.check_restrictions.string_to_list(the_link,False)
         if link_list:
             for a_link in link_list:
                 if self._check_url_is_valid(a_link):
                     # passed checks
                     self.add_item_to_url_struct(a_link)
+                    self.label_log_show.setText("")
         elif self._check_url_is_valid(the_link):
             # passed checks
             self.add_item_to_url_struct(the_link)
+            self.label_log_show.setText("")
+        time.sleep(0.333)
         self._enable_disable_obj_on_process(True)
 
     def _check_url_is_valid(self, url: str) -> bool:
@@ -1421,6 +1429,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         """
         is_valid, _ = self.ptf.is_yt_valid_url(url)
         if not is_valid:
+            self.label_log_show.setText(f"{url} is not Valid!")
             return False
         # slow html check
         return self.does_url_exist(url)
@@ -1497,12 +1506,15 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
     def does_url_exist(self, url):
         """Check if the given url exists or not"""
         try:
+            self.label_log_show.setText("")
             response = requests.get(url, timeout=10)
         except self._get_request_exceptions_tuple() as eee:
             log.error(eee)
+            self.label_log_show.setText(str(eee))
             return False
         if response.status_code == 200:
             return True
+        self.label_log_show.setText(f"{url} got response with wrong status code {response.status_code} != 200")
         return False
 
     def open_url_list(self):
