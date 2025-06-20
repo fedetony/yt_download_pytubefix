@@ -6,8 +6,9 @@
 # *********************************
 """
 __author__ = "FG"
-__version__ = "1.0.0 Beta"
+__version__ = "1.0.33 Beta"
 __creationdate__ = "04.08.2024"
+__lastmodifieddate__ = "20.06.2025"
 __gitaccount__ = "<a href=\"https://github.com/fedetony\">' Github for fedetony'</a>"
 __pytubefix__ = "<a href=\"https://github.com/JuanBindez/pytubefix\">' Github for pytubefix'</a>"
 
@@ -197,10 +198,15 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.url_id_counter = 0
         self.ongoing_download_url = None
         self.ongoing_download_title = None
-        self.label_log_show = QtWidgets.QLabel(self.statusbar)
+        # self.label_log_show = QtWidgets.QLabel(self.statusbar)
+        # self.label_log_show.setObjectName("label_log_show")
+        # self.label_log_show.setText("Welcome to YTPytubefix Download!")
+        #self.statusbar.addPermanentWidget(self.label_log_show)
+        self.label_log_show = QtWidgets.QLabel("Welcome to YTPytubefix Download!")
         self.label_log_show.setObjectName("label_log_show")
-        self.label_log_show.setText("Welcome to YTPytubefix Download!")
-        self.statusbar.addPermanentWidget(self.label_log_show)
+
+        self.statusbar.addWidget(self.label_log_show)
+        
 
     def setup_ui2(self, amain_window: QtWidgets.QMainWindow):
         """Start main
@@ -523,6 +529,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
     def _connect_actions(self):
         """Connect all objects"""
         self.lineEdit_url.textChanged.connect(self._lineedit_url_changed)
+        self.lineEdit_url.returnPressed.connect(self._pushbutton_url_pressed)
         self.actionAbout.triggered.connect(self.show_aboutbox)
         self.actionOpen_URL_list.triggered.connect(self.open_url_list)
         self.actionSave_URL_list.triggered.connect(self.save_url_list)
@@ -625,7 +632,10 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         if len(track) == 0:
             return
         self.item_menu = QtWidgets.QMenu()
-        menu_item01 = self._add_action_to_menu(f"Toggle {track}", False, self.icon_toggle)
+        if len(track_list)>1:
+            menu_item01 = self._add_action_to_menu(f"Toggle {track_list}", False, self.icon_toggle)
+        else:
+            menu_item01 = self._add_action_to_menu(f"Toggle {track}", False, self.icon_toggle)
         self.item_menu.addSeparator()
         menu_item10 = self._add_action_to_menu(f"Set Filename {track[0]}", True, self.icon_save_file)
         menu_item11 = self._add_action_to_menu(f"Set Download Path {id_key_list}", True, self.icon_download_folder)
@@ -657,7 +667,10 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         is_itm_bool = self.twf.check_restrictions.check_type(str(bool), value_of_rc, True)
         if is_itm_bool:
             menu_item01.setEnabled(True)
-            menu_item01.triggered.connect(lambda: self._toggle_bool_item(track))
+            if len(track_list)>1:
+                menu_item01.triggered.connect(lambda: self._toggle_bool_item(track_list))
+            else:
+                menu_item01.triggered.connect(lambda: self._toggle_bool_item(track))
 
         if len(id_key_list) > 0:
             menu_item10.setEnabled(True)
@@ -1328,20 +1341,23 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         print(track)
         # print(self._get_resolution_combobox_value(track[0]))
 
-    def _toggle_bool_item(self, track: list):
+    def _toggle_bool_item(self, track_list: list):
         """Toggles the value of a bool item in the Table
 
         Args:
             track (list): track of item
         """
         # self._do_debug_stuff(track)
-        value_of_rc = self.twf.get_tracked_value_in_struct(track, self.url_struct)
-        is_itm_bool = self.twf.check_restrictions.check_type(str(bool), value_of_rc, True)
-        if is_itm_bool:
-            log.debug("Toggle Triggered %s", track)
-            value_of_rc = self.twf.check_restrictions.set_type_to_value(value_of_rc, str(bool), "")
-            self.twf.set_value_and_trigger_data_change(track, not value_of_rc, str(bool), "")
-        self._main_refresh_tablewidget()
+        if not isinstance(track_list[0],list):
+            track_list=[track_list]
+        for track in track_list:
+            value_of_rc = self.twf.get_tracked_value_in_struct(track, self.url_struct)
+            is_itm_bool = self.twf.check_restrictions.check_type(str(bool), value_of_rc, True)
+            if is_itm_bool:
+                log.debug("Toggle Triggered %s", track)
+                value_of_rc = self.twf.check_restrictions.set_type_to_value(value_of_rc, str(bool), "")
+                self.twf.set_value_and_trigger_data_change(track, not value_of_rc, str(bool), "")
+            self._main_refresh_tablewidget()
 
     def _get_id_key_list_from_selection(self) -> tuple[list, list]:
         """Gets a list of keys of the items selected
@@ -1397,10 +1413,12 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.actionOpen_URL_list.setEnabled(enable)
         self.actionSet_Path.setEnabled(enable)
         self.actionSave_URL_list.setEnabled(enable)
+        time.sleep(0.1)
 
     def _pushbutton_url_pressed(self):
         """On pressed url button add to list"""
         self._enable_disable_obj_on_process(False)
+        self.label_log_show.setText("Adding URLS!!!")
         # fast regex check
         the_link = self.lineEdit_url.text()
         the_link = the_link.strip()
@@ -1410,12 +1428,13 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
                 if self._check_url_is_valid(a_link):
                     # passed checks
                     self.add_item_to_url_struct(a_link)
-                    self.label_log_show.setText("")
+                    self.label_log_show.setText(a_link)
         elif self._check_url_is_valid(the_link):
             # passed checks
             self.add_item_to_url_struct(the_link)
-            self.label_log_show.setText("")
+            self.label_log_show.setText(the_link)
         time.sleep(0.333)
+        self.label_log_show.setText("")
         self._enable_disable_obj_on_process(True)
 
     def _check_url_is_valid(self, url: str) -> bool:
@@ -1678,6 +1697,8 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
             + __version__
             + '</p> <p style="color:black;">Creation date: '
             + __creationdate__
+            + '</p> <p style="color:black;">Last modified date: '
+            + __lastmodifieddate__
             + '</p> <p style="color:black;">pytubefix: '
             + __pytubefix__
             + " V:"
