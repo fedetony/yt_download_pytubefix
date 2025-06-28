@@ -147,6 +147,7 @@
      <string>About</string>
     </property>
     <addaction name="actionAbout"/>
+    <addaction name="actionUpdate_pytubefix"/>
     <addaction name="separator"/>
     <addaction name="actionShow_Log"/>
    </widget>
@@ -177,6 +178,11 @@
   <action name="actionShow_Log">
    <property name="text">
     <string>Show Log</string>
+   </property>
+  </action>
+  <action name="actionUpdate_pytubefix">
+   <property name="text">
+    <string>Update pytubefix</string>
    </property>
   </action>
  </widget>

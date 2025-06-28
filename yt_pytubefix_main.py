@@ -29,6 +29,7 @@ import datetime
 import subprocess
 
 from importlib.metadata import version
+from importlib.util import find_spec
 import yaml
 import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -120,6 +121,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.icon_explorer = QtGui.QIcon()
         self.icon_open_file = QtGui.QIcon()
         self.icon_save_file = QtGui.QIcon()
+        self.icon_refresh = QtGui.QIcon()
         self.icon_info = QtGui.QIcon()
         self.icon_toggle = QtGui.QIcon()
         self.icon_play = QtGui.QIcon()
@@ -291,6 +293,9 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
 
         path_to_file = image_path + "open_file_icon.png"
         self.icon_open_file = self._set_icon_to_object(path_to_file, self.icon_open_file, self.actionOpen_URL_list)
+
+        path_to_file = image_path + "refresh_icon.png"
+        self.icon_refresh = self._set_icon_to_object(path_to_file, self.icon_refresh, self.actionUpdate_pytubefix)
 
         path_to_file = image_path + "save_file_icon.png"
         self.icon_save_file = self._set_icon_to_object(path_to_file, self.icon_save_file, self.actionSave_URL_list)
@@ -531,6 +536,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.lineEdit_url.textChanged.connect(self._lineedit_url_changed)
         self.lineEdit_url.returnPressed.connect(self._pushbutton_url_pressed)
         self.actionAbout.triggered.connect(self.show_aboutbox)
+        self.actionUpdate_pytubefix.triggered.connect(self.update_library)
         self.actionOpen_URL_list.triggered.connect(self.open_url_list)
         self.actionSave_URL_list.triggered.connect(self.save_url_list)
         self.actionSet_Path.triggered.connect(self.set_download_path)
@@ -544,6 +550,76 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         # right click menu
 
         self.tableWidget_url.customContextMenuRequested.connect(self._table_item_right_clicked)
+
+    def update_library(self):
+        """Updates pytubefix"""
+        library_name = 'pytubefix'
+        try:
+            # Get the package manager for the library
+            pm = find_spec(library_name)
+            
+            if not pm is None:
+                latest_version=self.get_library_version(library_name)
+                msg_ = f"You are using {library_name} V{str(version(library_name))} \nLatest Version is: {latest_version}\n Found library: {pm}\n Do you want to update {library_name}?"
+                if not self.a_dialog.send_question_yes_no_msgbox(f"Update {library_name}", msg_):
+                    return
+                from importlib.machinery import SourceFileLoader
+                module = SourceFileLoader('module', pm.origin).exec_module()
+                
+                # Update the package using pip
+                log.info(f"Updating {library_name}...")
+                subprocess.run(['pip', 'install', '--upgrade', library_name], check=True)
+                log.info(f"{library_name} updated successfully.")
+            else:
+                log.error(f"No module named {library_name}")
+        except Exception as e:
+            log.error(f"Failed to update {library_name}: {e}")
+    
+    @staticmethod
+    def get_library_version(library_name):
+        """Get library latest version number
+
+        Args:
+            library_name (str): library name
+
+        Returns:
+            str: latest version
+        """
+        try:
+            output = subprocess.check_output(['pip', 'show', library_name], stderr=subprocess.STDOUT)
+            lines = output.decode('utf-8').splitlines()
+            for line in lines:
+                if "Version" in line:
+                    return line.split(":")[1].strip()
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            log.error(f"Failed to get version: {e}")
+        
+        # If no match is found, try checking the GitHub page
+        # import requests
+        
+        url = f"https://api.github.com/repos/{library_name}/releases"
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            for release in data['assets']:
+                if 'name' in release and library_name in release['name']:
+                    return str(release['tag_name'])
+        
+        # If no match is found, try checking the package's homepage
+        # import requests
+        
+        url = f"https://pypi.org/pypi/{library_name}/"
+        response = requests.get(url)
+        if response.status_code == 200:
+            html = response.text
+            for line in html.splitlines():
+                if "Version" in line:
+                    return line.split(":")[1].strip()
+        
+        # If no match is found, raise an exception
+        return f"No version information available"
 
     def _open_log_dialog(self):
         path_to_file = LOG_PATH + os.sep + "__yt_pytubefix_gui__.log"

@@ -104,11 +104,14 @@ class Ui_MainWindow(object):
         self.actionSave_URL_list.setObjectName("actionSave_URL_list")
         self.actionShow_Log = QtWidgets.QAction(MainWindow)
         self.actionShow_Log.setObjectName("actionShow_Log")
+        self.actionUpdate_pytubefix = QtWidgets.QAction(MainWindow)
+        self.actionUpdate_pytubefix.setObjectName("actionUpdate_pytubefix")
         self.menuFile.addAction(self.actionSet_Path)
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionOpen_URL_list)
         self.menuFile.addAction(self.actionSave_URL_list)
         self.menuAbout.addAction(self.actionAbout)
+        self.menuAbout.addAction(self.actionUpdate_pytubefix)
         self.menuAbout.addSeparator()
         self.menuAbout.addAction(self.actionShow_Log)
         self.menubar.addAction(self.menuFile.menuAction())
@@ -136,6 +139,7 @@ class Ui_MainWindow(object):
         self.actionOpen_URL_list.setText(_translate("MainWindow", "Open URL list"))
         self.actionSave_URL_list.setText(_translate("MainWindow", "Save URL list"))
         self.actionShow_Log.setText(_translate("MainWindow", "Show Log"))
+        self.actionUpdate_pytubefix.setText(_translate("MainWindow", "Update pytubefix"))
 
 
 if __name__ == "__main__":
