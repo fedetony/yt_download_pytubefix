@@ -241,7 +241,7 @@ class ThreadQueueDownloadStream(threading.Thread):
                 self.actual_url = a_url
                 self.actual_url_properties = self.get_download_options_for_url(self.actual_url_index, self.actual_url)
                 #print(self.actual_url_properties)
-                self.actual_url_info = self.ptf.get_url_info(a_url)
+                # self.actual_url_info = self.ptf.get_url_info(a_url) # maybe not needed takes time
                 if not self.actual_url_properties["selected_resolution"]:
                     outfn=self.ptf.download_video(
                         url=self.actual_url_properties["URL"],

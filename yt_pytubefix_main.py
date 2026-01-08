@@ -6,9 +6,9 @@
 # *********************************
 """
 __author__ = "FG"
-__version__ = "1.0.33 Beta"
+__version__ = "1.1.33 Beta"
 __creationdate__ = "04.08.2024"
-__lastmodifieddate__ = "20.06.2025"
+__lastmodifieddate__ = "01.08.2026"
 __gitaccount__ = "<a href=\"https://github.com/fedetony\">' Github for fedetony'</a>"
 __pytubefix__ = "<a href=\"https://github.com/JuanBindez/pytubefix\">' Github for pytubefix'</a>"
 
@@ -21,6 +21,36 @@ __pytubefix__ = "<a href=\"https://github.com/JuanBindez/pytubefix\">' Github fo
 
 import sys
 import os
+if getattr(sys, 'frozen', False):
+    # Running as EXE
+    BASE_PATH = os.path.dirname(sys.executable)   # where libs/ will live
+    MEIPASS_PATH = sys._MEIPASS                   # internal bundled resources
+else:
+    # Running from source
+    BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+    MEIPASS_PATH = BASE_PATH
+LIB_PATH = os.path.join(BASE_PATH, "libs")
+sys.path.insert(0, LIB_PATH)
+
+def is_libs_empty():
+    libs_path = os.path.join(BASE_PATH, "libs")
+    # Folder doesn't exist → treat as empty
+    if not os.path.isdir(libs_path):
+        return True
+    # Folder exists but has no subfolders/files
+    return len(os.listdir(libs_path)) == 0
+
+def missing_required_modules():
+    libs_path = os.path.join(BASE_PATH, "libs")
+    required = ["pytubefix", "yt_dlp"]
+    missing = []
+    for module in required:
+        module_path = os.path.join(libs_path, module)
+        if not os.path.exists(module_path):
+            missing.append(module)
+
+    return missing
+
 import logging
 import threading
 import time
@@ -34,37 +64,16 @@ import yaml
 import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-import pytubefix
-import pytubefix.metadata
-
-# from genericpath import isfile
-# from operator import index
-
 import class_file_dialogs
-import class_table_widget_functions
-import class_pytubefix_use
-import class_signal_tracker
-import class_useful_functions
-import class_log_dialog
-import thread_download_pytubefix
-import yt_pytubefix_gui
 
 # import yt_pytubefix_log_dialog
 
-# import json
-# import re
 # Setup Logger
 # set up logging to file - see previous section for more details
 log = logging.getLogger("")  # root logger
 # For file
-APP_PATH = ""
-if getattr(sys, "frozen", False):
-    APP_PATH = os.path.dirname(sys.executable)
-elif __file__:
-    APP_PATH = os.path.dirname(__file__)
-LOG_PATH = APP_PATH + os.sep + "logs"
-if not os.path.exists(LOG_PATH):
-    os.mkdir(LOG_PATH)
+LOG_PATH = os.path.join(BASE_PATH, "logs")
+os.makedirs(LOG_PATH, exist_ok=True)
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s", datefmt="%y-%m-%d %H:%M"
@@ -87,6 +96,76 @@ logging.getLogger("").addHandler(console)
 logging.getLogger("").addHandler(file_handler)
 logging.getLogger("").propagate = False
 
+from PyQt5.QtWidgets import QApplication, QMessageBox
+
+def ask_user_install_missing(msg):
+    # Create a minimal QApplication if none exists
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication([])
+
+    reply = QMessageBox.question(
+        None,                      # no parent QWidget
+        "Missing Libraries",
+        msg,
+        QMessageBox.Yes | QMessageBox.No,
+        QMessageBox.No
+    )
+
+    return reply == QMessageBox.Yes
+
+def check_libs_on_startup():
+    missing = missing_required_modules()
+    if missing:
+        msg = (
+            "The following libraries are missing from the 'libs' folder:\n"
+            + "\n".join(f" - {m}" for m in missing)
+            + "\n\nYou need to install them before using the downloader."
+            + "\nDo you want to install them now?"
+        )
+        log.info(msg)
+        if ask_user_install_missing(msg):
+            for m in missing:
+                _update_library(m)
+        else:
+            sys.exit(0)
+
+def _update_library(library_name):
+    try:
+        libs_path = os.path.join(BASE_PATH, "libs")
+        os.makedirs(libs_path, exist_ok=True)
+        log.info(f"Installing/updating {library_name} into {libs_path}...")
+        # Use the same Python interpreter running the EXE
+        python_exec = sys.executable
+        result = subprocess.run(
+            [
+                python_exec, "-m", "pip",
+                "install", "--upgrade",
+                library_name,
+                "-t", libs_path
+            ],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode != 0:
+            log.error(f"pip failed for {library_name}: {result.stderr}")
+            return
+        log.info(f"{library_name} updated successfully.")
+    except Exception as e:
+        log.error(f"Failed to update {library_name}: {e}")
+
+check_libs_on_startup()
+
+import pytubefix
+import pytubefix.metadata
+import class_pytubefix_use
+import class_yt_dlp_use
+import class_table_widget_functions
+import class_signal_tracker
+import class_useful_functions
+import class_log_dialog
+import thread_download_pytubefix
+import yt_pytubefix_gui
 
 class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
     """GUI for handleing Pytubefix
@@ -208,7 +287,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.label_log_show.setObjectName("label_log_show")
 
         self.statusbar.addWidget(self.label_log_show)
-        
+
 
     def setup_ui2(self, amain_window: QtWidgets.QMainWindow):
         """Start main
@@ -536,7 +615,7 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
         self.lineEdit_url.textChanged.connect(self._lineedit_url_changed)
         self.lineEdit_url.returnPressed.connect(self._pushbutton_url_pressed)
         self.actionAbout.triggered.connect(self.show_aboutbox)
-        self.actionUpdate_pytubefix.triggered.connect(self.update_library)
+        self.actionUpdate_pytubefix.triggered.connect(self._update_pytubefix)
         self.actionOpen_URL_list.triggered.connect(self.open_url_list)
         self.actionSave_URL_list.triggered.connect(self.save_url_list)
         self.actionSet_Path.triggered.connect(self.set_download_path)
@@ -551,75 +630,72 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
 
         self.tableWidget_url.customContextMenuRequested.connect(self._table_item_right_clicked)
 
-    def update_library(self):
-        """Updates pytubefix"""
-        library_name = 'pytubefix'
+    def _update_pytubefix(self):
+        libs_path = os.path.join(BASE_PATH, "libs")
+        self.update_library("pytubefix",libs_path)
+    
+    def _update_yt_dlp(self):
+        libs_path = os.path.join(BASE_PATH, "libs")
+        self.update_library("yt_dlp",libs_path)
+
+    def update_library(self, library_name: str,libs_path:str):
+        """Updates a pip-installed library (pytubefix, yt_dlp, etc.)"""
+
         try:
-            # Get the package manager for the library
+            # Check if installed
             pm = find_spec(library_name)
-            
-            if not pm is None:
-                latest_version=self.get_library_version(library_name)
-                msg_ = f"You are using {library_name} V{str(version(library_name))} \nLatest Version is: {latest_version}\n Found library: {pm}\n Do you want to update {library_name}?"
-                if not self.a_dialog.send_question_yes_no_msgbox(f"Update {library_name}", msg_):
-                    return
-                from importlib.machinery import SourceFileLoader
-                module = SourceFileLoader('module', pm.origin).exec_module()
-                
-                # Update the package using pip
-                log.info(f"Updating {library_name}...")
-                subprocess.run(['pip', 'install', '--upgrade', library_name], check=True)
-                log.info(f"{library_name} updated successfully.")
-            else:
+            if pm is None:
                 log.error(f"No module named {library_name}")
+                return
+
+            # Installed version
+            installed_version = version(library_name)
+
+            # Latest version from PyPI
+            latest_version = self.get_library_latest_pypi_version(library_name)
+
+            msg = (
+                f"You are using {library_name} v{installed_version}\n"
+                f"Latest version is: {latest_version}\n"
+                f"Found library at: {pm.origin}\n"
+                f"Do you want to update {library_name}?"
+            )
+
+            if not self.a_dialog.send_question_yes_no_msgbox(f"Update {library_name}", msg):
+                return
+
+            log.info(f"Updating {library_name}...")
+            python_exec = sys.executable
+            result = subprocess.run(
+                [
+                    python_exec, "-m", "pip",
+                    "install", "--upgrade",
+                    library_name,
+                    "-t", libs_path
+                ],
+                capture_output=True,
+                text=True
+            )
+            log.info(f"{library_name} updated successfully.")
+
         except Exception as e:
             log.error(f"Failed to update {library_name}: {e}")
     
     @staticmethod
-    def get_library_version(library_name):
-        """Get library latest version number
-
-        Args:
-            library_name (str): library name
-
-        Returns:
-            str: latest version
-        """
+    def get_library_latest_pypi_version(library_name: str) -> str:
+        """Fetch latest version from PyPI JSON API."""
         try:
-            output = subprocess.check_output(['pip', 'show', library_name], stderr=subprocess.STDOUT)
-            lines = output.decode('utf-8').splitlines()
-            for line in lines:
-                if "Version" in line:
-                    return line.split(":")[1].strip()
-        except FileNotFoundError:
-            pass
+            url = f"https://pypi.org/pypi/{library_name}/json"
+            response = requests.get(url, timeout=5)
+
+            if response.status_code == 200:
+                data = response.json()
+                return data["info"]["version"]
+
         except Exception as e:
-            log.error(f"Failed to get version: {e}")
-        
-        # If no match is found, try checking the GitHub page
-        # import requests
-        
-        url = f"https://api.github.com/repos/{library_name}/releases"
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            for release in data['assets']:
-                if 'name' in release and library_name in release['name']:
-                    return str(release['tag_name'])
-        
-        # If no match is found, try checking the package's homepage
-        # import requests
-        
-        url = f"https://pypi.org/pypi/{library_name}/"
-        response = requests.get(url)
-        if response.status_code == 200:
-            html = response.text
-            for line in html.splitlines():
-                if "Version" in line:
-                    return line.split(":")[1].strip()
-        
-        # If no match is found, raise an exception
-        return f"No version information available"
+            log.error(f"Failed to fetch PyPI version for {library_name}: {e}")
+
+        return "Unknown"
 
     def _open_log_dialog(self):
         path_to_file = LOG_PATH + os.sep + "__yt_pytubefix_gui__.log"

@@ -1,29 +1,83 @@
 import re
-import os
+import os, sys
 import json
 from pytubefix import YouTube, Playlist, Stream
 from pytubefix.innertube import InnerTube
 from pytubefix.cli import on_progress
 from pytubefix import Channel,Caption
+from pytubefix import Search as YTSearch
+from pytubefix.contrib.search import Filter as YTFilter
 
 from PyQt5 import QtCore
+from PyQt5.QtCore import QThread, pyqtSignal, QObject
 from PyQt5.QtWidgets import *
+from PyQt5.QtCore import QEventLoop
+
 import proglog
 #from moviepy.editor import VideoFileClip, AudioFileClip
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from moviepy.audio.io.AudioFileClip import AudioFileClip
 
 import class_file_dialogs
+import yaml
+import inspect
+import time
 
 ALLOWED_CHARS = 'áéíóúüöäÜÖÄÁÉÍÓÚçÇabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -'
+APP_PATH = ""
+if getattr(sys, "frozen", False):
+    APP_PATH = os.path.dirname(sys.executable)
+elif __file__:
+    APP_PATH = os.path.dirname(__file__)
 
 CLIENT=InnerTube().client_name
-
+UPLOAD_DATE_FILTERS = [
+    ("Any", None),
+    ("Last Hour", YTFilter.UploadDate.LAST_HOUR),
+    ("Today", YTFilter.UploadDate.TODAY),
+    ("This Week", YTFilter.UploadDate.THIS_WEEK),
+    ("This Month", YTFilter.UploadDate.THIS_MONTH),
+    ("This Year", YTFilter.UploadDate.THIS_YEAR),
+]
+TYPE_FILTERS = [
+    ("Any", None),
+    ("Video", YTFilter.Type.VIDEO),
+    ("Channel", YTFilter.Type.CHANNEL),
+    ("Playlist", YTFilter.Type.PLAYLIST),
+    ("Movie", YTFilter.Type.MOVIE),
+]
+DURATION_FILTERS = [
+    ("Any", None),
+    ("Under 4 minutes", YTFilter.Duration.UNDER_4_MINUTES),
+    ("4–20 minutes", YTFilter.Duration.BETWEEN_4_20_MINUTES),
+    ("Over 20 minutes", YTFilter.Duration.OVER_20_MINUTES),
+]
+FEATURE_FILTERS = [
+    ("4K", YTFilter.Features._4K),
+    ("HD", YTFilter.Features.HD),
+    ("Creative Commons", YTFilter.Features.CREATIVE_COMMONS),
+    ("Live", YTFilter.Features.LIVE),
+    ("Purchased", YTFilter.Features.PURCHASED),
+    ("360°", YTFilter.Features._360),
+    ("VR180", YTFilter.Features.VR180),
+    ("HDR", YTFilter.Features.HDR),
+    ("Location", YTFilter.Features.LOCATION),
+    ("Subtitles", YTFilter.Features.SUBTITLES_CC),
+]
+SORT_BY_FILTERS = [
+    ("Relevance", YTFilter.SortBy.RELEVANCE),
+    ("Upload Date", YTFilter.SortBy.UPLOAD_DATE),
+    ("View Count", YTFilter.SortBy.VIEW_COUNT),
+    ("Rating", YTFilter.SortBy.RATING),
+]
 class use_pytubefix(QWidget):   
     download_start=QtCore.pyqtSignal(str,str)
     download_end=QtCore.pyqtSignal(str,str,str)
     on_progress=QtCore.pyqtSignal(list) 
     to_log=QtCore.pyqtSignal(str) 
+    streams_ready = pyqtSignal(object, object)   # prog, adap
+    streams_error = pyqtSignal(str)
+
     
     def __init__(self, *args, **kwargs):        
         super(use_pytubefix, self).__init__(*args, **kwargs)    
@@ -32,6 +86,50 @@ class use_pytubefix(QWidget):
         self.po_token_verifier=None
         self._read_file_po_token()
         self.to_log.emit(f'potoken value: {self.po_token_verifier}')
+        self.config=self._load_yaml_config(os.path.join(APP_PATH,"config","pytubefix_config.yml"))
+    
+    @staticmethod
+    def _call_with_yaml(func, yaml_config:dict):
+        """Set a function with external positional arguments and kwargs: 
+        Yaml cofig example:
+            args:
+                - "https://example.com"   # positional
+            kwargs:
+                client: "user"
+                use_oauth: true
+                {"args": ["https://example.com"],"kwargs": {"client": "user","use_oauth": True}}
+        """
+        sig = inspect.signature(func)
+        valid_params = sig.parameters.keys()
+
+        args = yaml_config.get("args", [])
+        kwargs = yaml_config.get("kwargs", {})
+
+        filtered_kwargs = {
+            k: v for k, v in kwargs.items()
+            if k in valid_params
+        }
+        return func(*args, **filtered_kwargs)
+    
+    @staticmethod
+    def _load_yaml_config(filepath):
+        """Load yaml configuration"""
+        with open(filepath, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)
+    
+    @staticmethod
+    def get_function_config(config, func_name):
+        return config.get("functions", {}).get(func_name, {})
+    
+    @staticmethod
+    def filter_args_for_callable(callable_obj, kwargs):
+        sig = inspect.signature(callable_obj)
+        valid_params = sig.parameters.keys()
+
+        return {
+            k: v for k, v in kwargs.items()
+            if k in valid_params
+        }
         
     def _read_file_po_token(self):
         """Read Json file with potoken info
@@ -129,47 +227,82 @@ class use_pytubefix(QWidget):
     #clients: WEB, WEB_EMBED, WEB_MUSIC, WEB_CREATOR, WEB_SAFARI, ANDROID, ANDROID_MUSIC, ANDROID_CREATOR, ANDROID_VR, ANDROID_PRODUCER
     # , ANDROID_TESTSUITE, IOS, IOS_MUSIC, IOS_CREATOR, MWEB, TV_EMBED, MEDIA_CONNECT
 
-    def get_yt_video_from_url(self,url,client=CLIENT,use_po_token=True): #'WEB_CREATOR'):
+    def get_yt_video_from_url(self, url,**kwargs):
         try:
-            #if client=='WEB':
-            #    yt = YouTube(url, client=client, use_po_token=True, on_progress_callback = self._on_progress)
-            #else:
-            #    yt = YouTube(url, client=client, on_progress_callback = self._on_progress)
-            if use_po_token:
-                if not self.po_token_verifier:
-                    self.to_log.emit("Adaptive files require a potoken to download correctly!")
-                    self.to_log.emit(f"Set file token_info.json in {self.cfd.get_app_path()} folder!\nIf you don't have one, it can be generated by running potoken-generator program!")
-                    #if self.cfd.send_question_yes_no_msgbox("Manual input of potoken","Would you like to input the Proof of Origin Token (potoken) manually?"):
-                    self._set_po_token_manually()
-                if self.po_token_verifier is not None:
-                    yt = YouTube(url, client=client,use_po_token=use_po_token, po_token_verifier=self.call_po_token, on_progress_callback = self._on_progress)
-                else:
-                    yt = None
-            else:
-                yt = YouTube(url, client=client, on_progress_callback = self._on_progress)
-        except Exception as eee:
-            #print(eee)
-            self.to_log.emit("Error Video: {}".format(eee))
+            # Load YAML kwargs
+            yt_kwargs = self.get_function_config(self.config, "Youtube")
+
+            # Inject required callback
+            yt_kwargs["on_progress_callback"] = self._on_progress
+
+            # Filter kwargs based on YouTube signature
+            filtered = self.filter_args_for_callable(YouTube, yt_kwargs)
+
+            # Create YouTube object
+            yt = YouTube(url, **filtered)
+
+        except Exception as e:
+            self.to_log.emit(f"Error Video: {e}")
             yt = None
+
         return yt
 
-    def get_yt_playlist_from_url(self,url):
-        try:
-            pl = Playlist(url)
-        except Exception as eee:
-            #print(eee)
-            self.to_log.emit("Error Playlist: {}".format(eee))
-            pl = None
-        return pl
+    def get_yt_playlist_from_url(self, url):
+        return self.build_pytubefix_object(Playlist, url)
+
+    def get_yt_channel_from_url(self, url):
+        return self.build_pytubefix_object(Channel, url)
     
-    def get_yt_channel_from_url(self,url):
+    def build_pytubefix_object(self, cls, url):
         try:
-            ch = Channel(url)
-        except Exception as eee:
-            #print(eee)
-            self.to_log.emit(f"Error Channel: {eee}")
-            ch = None
-        return ch
+            kwargs = self.get_function_config(self.config, "Youtube")
+            filtered = self.filter_args_for_callable(cls, kwargs)
+            return cls(url, **filtered)
+        except Exception as e:
+            self.to_log.emit(f"Error {cls.__name__}: {e}")
+            return None
+        
+    # def get_yt_video_from_url(self,url,client=CLIENT,use_po_token=True): #'WEB_CREATOR'):
+    #     try:
+    #         #if client=='WEB':
+    #         #    yt = YouTube(url, client=client, use_po_token=True, on_progress_callback = self._on_progress)
+    #         #else:
+    #         #    yt = YouTube(url, client=client, on_progress_callback = self._on_progress)
+    #         if use_po_token:
+    #             if not self.po_token_verifier:
+    #                 self.to_log.emit("Adaptive files require a potoken to download correctly!")
+    #                 self.to_log.emit(f"Set file token_info.json in {self.cfd.get_app_path()} folder!\nIf you don't have one, it can be generated by running potoken-generator program!")
+    #                 #if self.cfd.send_question_yes_no_msgbox("Manual input of potoken","Would you like to input the Proof of Origin Token (potoken) manually?"):
+    #                 self._set_po_token_manually()
+    #             if self.po_token_verifier is not None:
+    #                 yt = YouTube(url, client=client,use_po_token=use_po_token, po_token_verifier=self.call_po_token, on_progress_callback = self._on_progress)
+    #             else:
+    #                 yt = None
+    #         else:
+    #             yt = YouTube(url, client=client, on_progress_callback = self._on_progress)
+    #     except Exception as eee:
+    #         #print(eee)
+    #         self.to_log.emit("Error Video: {}".format(eee))
+    #         yt = None
+    #     return yt
+
+    # def get_yt_playlist_from_url(self,url):
+    #     try:
+    #         pl = Playlist(url)
+    #     except Exception as eee:
+    #         #print(eee)
+    #         self.to_log.emit("Error Playlist: {}".format(eee))
+    #         pl = None
+    #     return pl
+    
+    # def get_yt_channel_from_url(self,url):
+    #     try:
+    #         ch = Channel(url)
+    #     except Exception as eee:
+    #         #print(eee)
+    #         self.to_log.emit(f"Error Channel: {eee}")
+    #         ch = None
+    #     return ch
 
     def download_video(self, url: str, output_path: str = None,
                 filename: str= None,
@@ -203,6 +336,58 @@ class use_pytubefix(QWidget):
                 self.to_log.emit("Error Downloading: {}".format(eee))
     
     def get_streams_available(self, url: str):
+        return self.get_streams_sync(url)
+
+    def get_streams_sync(self, url):
+        loop = QEventLoop()
+        result = {"prog": None, "adap": None}
+
+        def on_ok(prog, adap):
+            result["prog"] = prog
+            result["adap"] = adap
+            loop.quit()
+
+        def on_err(err):
+            self.to_log.emit(f"Error: {err}")
+            loop.quit()
+
+        # Create thread and worker
+        thread = QThread()
+        worker = StreamsWorker(self, url)
+        worker.moveToThread(thread)
+
+        # Connect signals BEFORE starting
+        worker.finished.connect(on_ok)
+        worker.error.connect(on_err)
+
+        # Clean up worker and thread
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+
+        # Start thread
+        thread.started.connect(worker.run)
+        thread.start()
+        # Block safely
+        loop.exec_()
+        # Wait for thread to fully stop
+        thread.wait()
+        return result["prog"], result["adap"]
+
+    def get_streams_async(self, url):
+        thread = QThread()
+        worker = StreamsWorker(self, url)
+        worker.moveToThread(thread)
+
+        thread.started.connect(worker.run)
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        worker.error.connect(lambda e: self.to_log.emit(f"Error: {e}"))
+
+        thread.start()
+
+    def _get_streams_available(self, url: str):
         """Gets progressive (audio and video together low resolution)
         and adaptive (audio and video together high resolution) streams"""
         yt = self.get_yt_video_from_url(url)
@@ -435,27 +620,29 @@ class use_pytubefix(QWidget):
             url (str): url desired
         Returns:
             dict: All information of the video. 
-        """
-        yt_info={}
-        yt = self.get_yt_video_from_url(url)
-        if self._check_yt(yt):
-            yt_info.update({"title":yt.title})
-            yt_info.update({"age_restricted":yt.age_restricted})
-            yt_info.update({"author":yt.author})
-            yt_info.update({"caption_tracks":yt.caption_tracks})
-            yt_info.update({"captions":yt.captions})
-            yt_info.update({"channel_id":yt.channel_id})
-            yt_info.update({"channel_url":yt.channel_url})
-            yt_info.update({"chapters":yt.chapters})
-            yt_info.update({"description":yt.description})
-            yt_info.update({"length":yt.length})
-            yt_info.update({"keywords":yt.keywords})
-            yt_info.update({"publish_date":yt.publish_date})
-            yt_info.update({"rating":yt.rating})
-            yt_info.update({"key_moments":yt.key_moments})
-            yt_info.update({"metadata":yt.metadata})
-            yt_info.update({"views":yt.views})
-            yt_info.update({"vid_info":yt.vid_info})
+        """        
+        yt_info=self.get_url_info_async(url)
+        if yt_info is None:
+            yt_info={}
+        # yt = self.get_yt_video_from_url(url)
+        # if self._check_yt(yt):
+        #     yt_info.update({"title":yt.title})
+        #     yt_info.update({"age_restricted":yt.age_restricted})
+        #     yt_info.update({"author":yt.author})
+        #     yt_info.update({"caption_tracks":yt.caption_tracks})
+        #     yt_info.update({"captions":yt.captions})
+        #     yt_info.update({"channel_id":yt.channel_id})
+        #     yt_info.update({"channel_url":yt.channel_url})
+        #     yt_info.update({"chapters":yt.chapters})
+        #     yt_info.update({"description":yt.description})
+        #     yt_info.update({"length":yt.length})
+        #     yt_info.update({"keywords":yt.keywords})
+        #     yt_info.update({"publish_date":yt.publish_date})
+        #     yt_info.update({"rating":yt.rating})
+        #     yt_info.update({"key_moments":yt.key_moments})
+        #     yt_info.update({"metadata":yt.metadata})
+        #     yt_info.update({"views":yt.views})
+        #     yt_info.update({"vid_info":yt.vid_info})
         return yt_info    
     
     def get_any_yt_videos_list(self,url: str):
@@ -478,20 +665,16 @@ class use_pytubefix(QWidget):
             elif yt_type == 'video':    
                 yt = self.get_yt_video_from_url(url)
                 if self._check_yt(yt):
-                    vid_list=[yt.title]
+                    vid_list=[self.get_fields(yt,["title"])["title"]]
                     vid_list_url=[url]
         return vid_list, vid_list_url
-    
-    def _check_yt(self,yt):
+
+    def _check_yt(self,yt:YouTube):
         """Checks if yt video is available and if is restricted ie requires login to view"""
-        try:
-            if yt:
-                _=yt.title
-                return True
-            return False
-        except Exception as eee:
-            self.to_log.emit("Error YT: {}".format(eee))
-        return False    
+        response=self.get_fields(yt, ["title"])
+        if response is not None:
+            return True
+        return False   
 
     def is_yt_valid_url(self,url: str):
         """
@@ -504,39 +687,199 @@ class use_pytubefix(QWidget):
         elif self.is_url_a_video(url):
             return True,'video'
         return False,''
-        
-
-    def get_playlist_video_list(self,url: str):
-        """
-        Gets lists of titles and urls of a playlist url
-        """
-        pl=self.get_yt_playlist_from_url(url)
-        vid_list=[]
-        vid_list_url=[]
-        if pl:
-            try:
-                for video in pl.videos:
-                    vid_list.append(video.title)
-                    vid_list_url.append(str(video.watch_url))
-            except:
-                pass
-        return vid_list, vid_list_url
     
-    def get_channel_video_list(self,url: str):
-        """
-        Gets lists of titles and urls of a channel url
-        """
-        ch=self.get_yt_channel_from_url(url)
-        vid_list=[]
-        vid_list_url=[]
-        if ch:
-            try:
-                for video in ch.videos:
-                    vid_list.append(video.title)
-                    vid_list_url.append(str(video.watch_url))
-            except:
-                pass
-        return vid_list, vid_list_url
+    def _on_info_ready(self, info):
+        self.info=info
+        self.is_info_error=False
+    
+    def _on_info_error(self, an_error):
+        self.to_log.emit("Error Info: {}".format(an_error))
+        self.info=None
+        self.is_info_error=True
+
+    def get_url_info_async(self, url):
+        yt = self.get_yt_video_from_url(url)
+        self.info=None
+        self.is_info_error=None
+
+        thread = QThread()
+        self.worker = YTMetadataWorker(yt)
+        self.worker.moveToThread(thread)
+
+        loop = QEventLoop()
+
+        def on_ok(info):
+            self.info = info
+            self.is_info_error = False
+            loop.quit()
+
+        def on_err(err):
+            self.to_log.emit(f"Error Info: {err}")
+            self.info = None
+            self.is_info_error = True
+            loop.quit()
+
+        self.worker.finished.connect(on_ok)
+        self.worker.error.connect(on_err)
+        thread.started.connect(self.worker.run)
+        # Clean up
+        self.worker.finished.connect(thread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.start()
+        loop.exec_()  # SAFE blocking wait
+        # Wait for thread to fully stop
+        thread.wait()
+        return self.info   
+
+    def get_url_fields_async(self, url, fields):
+        yt = self.get_yt_video_from_url(url)
+        return self.get_fields(yt,fields)
+
+    def get_fields(self, yt:YouTube, fields):
+        if not isinstance(yt,YouTube):
+            return None
+        self.info = None
+        self.is_info_error = None
+
+        thread = QThread()
+        self.worker = YTPartialInfoWorker(yt, fields)
+        self.worker.moveToThread(thread)
+
+        loop = QEventLoop()
+
+        def on_ok(info):
+            self.info = info
+            self.is_info_error = False
+            loop.quit()
+
+        def on_err(err):
+            self.to_log.emit(f"Error Info: {err}")
+            self.info = None
+            self.is_info_error = True
+            loop.quit()
+
+        
+        self.worker.finished.connect(on_ok)
+        self.worker.error.connect(on_err)
+        thread.started.connect(self.worker.run)
+
+        # Clean up
+        self.worker.finished.connect(thread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+
+        thread.start()
+        loop.exec_()  # SAFE blocking wait
+        # Wait for thread to fully stop
+        thread.wait()
+        return self.info
+
+    # def get_playlist_video_list(self,url: str):
+    #     """
+    #     Gets lists of titles and urls of a playlist url
+    #     """
+    #     pl=self.get_yt_playlist_from_url(url)
+    #     vid_list=[]
+    #     vid_list_url=[]
+    #     if pl:
+    #         try:
+    #             for video in pl.videos:
+    #                 vid_list.append(video.title)
+    #                 vid_list_url.append(str(video.watch_url))
+    #         except:
+    #             pass
+    #     return vid_list, vid_list_url
+    
+    # def get_channel_video_list(self,url: str):
+    #     """
+    #     Gets lists of titles and urls of a channel url
+    #     """
+    #     ch=self.get_yt_channel_from_url(url)
+    #     vid_list=[]
+    #     vid_list_url=[]
+    #     if ch:
+    #         try:
+    #             for video in ch.videos:
+    #                 vid_list.append(video.title)
+    #                 vid_list_url.append(str(video.watch_url))
+    #         except:
+    #             pass
+    #     return vid_list, vid_list_url
+
+    def get_channel_video_list(self, url):
+        loop = QEventLoop()
+        result = {"titles": [], "urls": []}
+
+        def on_ok(titles, urls):
+            result["titles"] = titles
+            result["urls"] = urls
+            loop.quit()
+
+        def on_err(err):
+            self.to_log.emit(f"Error Channel: {err}")
+            loop.quit()
+
+        thread, worker = self.get_channel_video_list_async(url)
+
+        worker.finished.connect(on_ok)
+        worker.error.connect(on_err)
+
+        loop.exec_()
+        thread.wait()
+
+        return result["titles"], result["urls"]
+    
+    def get_playlist_video_list(self, url):
+        loop = QEventLoop()
+        result = {"titles": [], "urls": []}
+
+        def on_ok(titles, urls):
+            result["titles"] = titles
+            result["urls"] = urls
+            loop.quit()
+
+        def on_err(err):
+            self.to_log.emit(f"Error Playlist: {err}")
+            loop.quit()
+
+        thread, worker = self.get_playlist_video_list_async(url)
+
+        worker.finished.connect(on_ok)
+        worker.error.connect(on_err)
+
+        loop.exec_()
+        thread.wait()
+
+        return result["titles"], result["urls"]
+
+    def get_channel_video_list_async(self, url):
+        thread = QThread()
+        worker = VideoListWorker(self, url, "channel")
+        worker.moveToThread(thread)
+
+        thread.started.connect(worker.run)
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        worker.error.connect(lambda e: self.to_log.emit(f"Error Channel: {e}"))
+
+        thread.start()
+        return thread, worker
+    
+    def get_playlist_video_list_async(self, url):
+        thread = QThread()
+        worker = VideoListWorker(self, url, "playlist")
+        worker.moveToThread(thread)
+
+        thread.started.connect(worker.run)
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        worker.error.connect(lambda e: self.to_log.emit(f"Error Playlist: {e}"))
+
+        thread.start()
+        return thread, worker
 
     def is_url_a_channel(self,url:str)->bool:
         """identify if url is a channel
@@ -683,6 +1026,9 @@ class use_pytubefix(QWidget):
             filename (str, optional): Filename to be saved to. Defaults to "captions.txt".
             language (str, optional): If NONE will find all captions available and store them in different filename with filename_XX.txt format. Defaults to 'en'.
         """
+        self.save_subtitles_async(self, url, filename, language)
+    
+    def _save_subtitles_to_file(self,url:str,filename:str="captions.txt",language:str='en'):
         yt = self.get_yt_video_from_url(url)
         if self._check_yt(yt):
             lang_list=[]
@@ -707,6 +1053,19 @@ class use_pytubefix(QWidget):
                     if caption:
                         Caption.save_captions(caption,filename)
     
+    def save_subtitles_async(self, url, filename="captions.txt", language="en"):
+        thread = QThread()
+        worker = SubtitleWorker(self, url, filename, language)
+        worker.moveToThread(thread)
+
+        thread.started.connect(worker.run)
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        worker.error.connect(lambda e: self.to_log.emit(f"Error: {e}"))
+
+        thread.start()
+    
     def _extract_language_code(self,txt):
         """Define your regex pattern to extract language code """
         #pattern = r'(?<=code=\"a\.)[\w]{2}'
@@ -719,25 +1078,70 @@ class use_pytubefix(QWidget):
         else:
             return None
     
-    def get_channel_name(self,urlchannel):
-        """
-        Get the channel name
-        """
-        ch = self.get_yt_channel_from_url(urlchannel)
-        if ch:
-            self.to_log.emit(f'Channel name: {ch.channel_name}')
-            return ch.channel_name
-        return None
+    # def get_channel_name(self,urlchannel):
+    #     """
+    #     Get the channel name
+    #     """
+    #     ch = self.get_yt_channel_from_url(urlchannel)
+    #     if ch:
+    #         self.to_log.emit(f'Channel name: {ch.channel_name}')
+    #         return ch.channel_name
+    #     return None
     
-    def get_playlist_name(self,urlplaylist):
-        """
-        Get the playlist title
-        """
+    # def get_playlist_name(self,urlplaylist):
+    #     """
+    #     Get the playlist title
+    #     """
+    #     pl = self.get_yt_playlist_from_url(urlplaylist)
+    #     if pl:
+    #         #print(f'Playlist title: {pl.title}')
+    #         return pl.title
+    #     return None
+
+    def get_channel_name(self, urlchannel):
+        ch = self.get_yt_channel_from_url(urlchannel)
+        if not ch:
+            return None
+        name = self.run_attr_sync(ch, "channel_name")
+        self.to_log.emit(f"Channel name: {name}")
+        return name
+    
+    def get_playlist_name(self, urlplaylist):
         pl = self.get_yt_playlist_from_url(urlplaylist)
-        if pl:
-            #print(f'Playlist title: {pl.title}')
-            return pl.title
-        return None
+        if not pl:
+            return None
+        return self.run_attr_sync(pl, "title")
+
+    def run_attr_sync(self, obj, attr):
+        loop = QEventLoop()
+        result = {"value": None}
+
+        def on_ok(value):
+            result["value"] = value
+            loop.quit()
+
+        def on_err(err):
+            self.to_log.emit(f"Error: {err}")
+            loop.quit()
+
+        thread = QThread()
+        worker = SimpleAttrWorker(obj, attr)
+        worker.moveToThread(thread)
+
+        worker.finished.connect(on_ok)
+        worker.error.connect(on_err)
+
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+
+        thread.started.connect(worker.run)
+        thread.start()
+
+        loop.exec_()
+        thread.wait()
+
+        return result["value"]
     
     def download_all_videos_from_a_channel(self,url: str, 
                 output_path: str = None,
@@ -777,6 +1181,95 @@ class use_pytubefix(QWidget):
                 except Exception as eee:
                     #print(eee)
                     self.to_log.emit("Error Downloading: {}".format(eee))
+    
+    def search_async(self, query, filters=None):
+        thread = QThread()
+        worker = SearchWorker(query, filters)
+        worker.moveToThread(thread)
+
+        thread.started.connect(worker.run)
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        worker.error.connect(lambda e: self.to_log.emit(f"Search Error: {e}"))
+
+        thread.start()
+        return thread, worker
+    
+    def search(self, query, filters=None):
+        loop = QEventLoop()
+        result = {"titles": [], "urls": [], "durations": []}
+
+        def on_ok(titles, urls, durations):
+            result["titles"] = titles
+            result["urls"] = urls
+            result["durations"] = durations
+            loop.quit()
+
+        def on_err(err):
+            self.to_log.emit(f"Search Error: {err}")
+            loop.quit()
+
+        thread, worker = self.search_async(query, filters)
+
+        worker.finished.connect(on_ok)
+        worker.error.connect(on_err)
+
+        loop.exec_()
+        thread.wait()
+
+        return result["titles"], result["urls"], result["durations"]
+    
+    def build_search_filter(self,
+                        upload_date=None,
+                        type=None,
+                        duration=None,
+                        features=None,
+                        sort_by=None):
+        f = YTFilter.create()
+
+        if upload_date:
+            f = f.upload_date(upload_date)
+        if type:
+            f = f.type(type)
+        if duration:
+            f = f.duration(duration)
+        if features:
+            f = f.feature(features)
+        if sort_by:
+            f = f.sort_by(sort_by)
+
+        return f
+# Example basic search
+# titles, urls, durations = self.search("GitHub Issue Best Practices")
+# Filter search
+# filters = self.build_search_filter(
+#     upload_date=YTFilter.UploadDate.TODAY,
+#     type=YTFilter.Type.VIDEO,
+#     duration=YTFilter.Duration.UNDER_4_MINUTES,
+#     features=[YTFilter.Features.CREATIVE_COMMONS, YTFilter.Features._4K],
+#     sort_by=YTFilter.SortBy.UPLOAD_DATE
+# )
+
+# titles, urls, durations = self.search("music", filters)
+#-------------
+# build filter object
+# f = YTFilter.create()
+# if selected_upload_date:
+#     f = f.upload_date(selected_upload_date)
+# if selected_type:
+#     f = f.type(selected_type)
+# if selected_duration:
+#     f = f.duration(selected_duration)
+# if selected_features:  # list
+#     f = f.feature(selected_features)
+# if selected_sort:
+#     f = f.sort_by(selected_sort)
+# set filters in combo from enums
+# selected_value = combo_upload_date.currentData()
+# for label, value in UPLOAD_DATE_FILTERS:
+#   combo_upload_date.addItem(label, value)
+#-------------------------------------------------------------------------------------
 
 class MyProgLogger(proglog.ProgressBarLogger):
     def set_signal_on_progress(self,on_progress):
@@ -815,5 +1308,179 @@ class MyProgLogger(proglog.ProgressBarLogger):
             # ('t', {'title': 't', 'index': 0, 'total': 62598, 'message': None, 'indent': 2})]), 
             # 'message': 'Moviepy - Writing video D:/Tonys Data/Python/yt_download_pytubefix/Downloads\\FreeCAD020ForBeginners8PartvsPartDesignRevolveWorkflowsWhenandWheretouse.mp4\n'}
         # print( bar, attr, value, old_value)
-    
-    
+
+class YTMetadataWorker(QObject):
+    finished = pyqtSignal(dict)
+    error = pyqtSignal(str)
+
+    def __init__(self, yt:YouTube):
+        super().__init__()
+        self.yt = yt
+
+    def run(self):
+        try:
+            info = {
+                "title": self.yt.title,
+                "age_restricted": self.yt.age_restricted,
+                "author": self.yt.author,
+                "caption_tracks": self.yt.caption_tracks,
+                "captions": self.yt.captions,
+                "channel_id": self.yt.channel_id,
+                "channel_url": self.yt.channel_url,
+                "chapters": self.yt.chapters,
+                "description": self.yt.description,
+                "length": self.yt.length,
+                "keywords": self.yt.keywords,
+                "publish_date": self.yt.publish_date,
+                "rating": self.yt.rating,
+                "key_moments": self.yt.key_moments,
+                "metadata": self.yt.metadata,
+                "views": self.yt.views,
+                "vid_info": self.yt.vid_info,
+            }
+            self.finished.emit(info)
+        except Exception as e:
+            self.error.emit(str(e))
+
+class YTPartialInfoWorker(QObject):
+    finished = pyqtSignal(dict)
+    error = pyqtSignal(str)
+
+    def __init__(self, yt, fields):
+        super().__init__()
+        self.yt = yt
+        self.fields = fields
+
+    def run(self):
+        try:
+            info = {}
+            for field in self.fields:
+                info[field] = getattr(self.yt, field)
+            self.finished.emit(info)
+        except Exception as e:
+            self.error.emit(str(e))
+
+class SubtitleWorker(QObject):
+    finished = pyqtSignal()
+    error = pyqtSignal(str)
+
+    def __init__(self, parent, url, filename, language):
+        super().__init__()
+        self.parent = parent
+        self.url = url
+        self.filename = filename
+        self.language = language
+
+    def run(self):
+        try:
+            self.parent._save_subtitles_to_file(
+                self.url, self.filename, self.language
+            )
+            self.finished.emit()
+        except Exception as e:
+            self.error.emit(str(e))
+
+class StreamsWorker(QObject):
+    finished = pyqtSignal(object, object)
+    error = pyqtSignal(str)
+
+    def __init__(self, parent, url):
+        super().__init__()
+        self.parent = parent
+        self.url = url
+
+    def run(self):
+        try:
+            prog, adap = self.parent._get_streams_available(self.url)
+            self.finished.emit(prog, adap)
+        except Exception as e:
+            self.error.emit(str(e))
+
+class VideoListWorker(QObject):
+    finished = pyqtSignal(list, list)   # titles, urls
+    error = pyqtSignal(str)
+
+    def __init__(self, parent, url, mode):
+        super().__init__()
+        self.parent = parent
+        self.url = url
+        self.mode = mode  # "playlist" or "channel"
+
+    def run(self):
+        try:
+            if self.mode == "playlist":
+                pl = self.parent.get_yt_playlist_from_url(self.url)
+                if not pl:
+                    raise Exception("Invalid playlist")
+
+                titles = []
+                urls = []
+                for video in pl.videos:
+                    titles.append(video.title)
+                    urls.append(video.watch_url)
+
+                self.finished.emit(titles, urls)
+
+            elif self.mode == "channel":
+                ch = self.parent.get_yt_channel_from_url(self.url)
+                if not ch:
+                    raise Exception("Invalid channel")
+
+                titles = []
+                urls = []
+                for video in ch.videos:
+                    titles.append(video.title)
+                    urls.append(video.watch_url)
+
+                self.finished.emit(titles, urls)
+
+        except Exception as e:
+            self.error.emit(str(e))
+
+class SimpleAttrWorker(QObject):
+    finished = pyqtSignal(object)
+    error = pyqtSignal(str)
+
+    def __init__(self, obj, attr):
+        super().__init__()
+        self.obj = obj
+        self.attr = attr
+
+    def run(self):
+        try:
+            value = getattr(self.obj, self.attr)
+            self.finished.emit(value)
+        except Exception as e:
+            self.error.emit(str(e))
+
+
+
+class SearchWorker(QObject):
+    finished = pyqtSignal(list, list, list)  # titles, urls, durations
+    error = pyqtSignal(str)
+
+    def __init__(self, query, filters=None):
+        super().__init__()
+        self.query = query
+        self.filters = filters
+
+    def run(self):
+        try:
+            if self.filters:
+                s = YTSearch(self.query, filters=self.filters)
+            else:
+                s = YTSearch(self.query)
+
+            titles = []
+            urls = []
+            durations = []
+
+            for video in s.videos:
+                titles.append(video.title)
+                urls.append(video.watch_url)
+                durations.append(video.length)
+
+            self.finished.emit(titles, urls, durations)
+
+        except Exception as e:
+            self.error.emit(str(e))

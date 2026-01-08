@@ -1,0 +1,11 @@
+functions:
+  Youtube:
+    #clients: WEB, WEB_EMBED, WEB_MUSIC, WEB_CREATOR, WEB_SAFARI, ANDROID, ANDROID_MUSIC, ANDROID_CREATOR, ANDROID_VR, ANDROID_PRODUCER
+    # , ANDROID_TESTSUITE, IOS, IOS_MUSIC, IOS_CREATOR, MWEB, TV_EMBED, MEDIA_CONNECT
+    client: "ANDROID"
+    use_oauth: false # use annonymously
+    allow_oauth_cache: false
+    # use_oauth: true # use if you want google to track you!
+    # allow_oauth_cache: true
+    # use_po_token: true   # old, ignored automatically
+  
