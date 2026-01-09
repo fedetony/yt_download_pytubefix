@@ -25,15 +25,66 @@ if getattr(sys, 'frozen', False):
     # Running as EXE
     BASE_PATH = os.path.dirname(sys.executable)   # where libs/ will live
     MEIPASS_PATH = sys._MEIPASS                   # internal bundled resources
+    # LIB_PATH = os.path.join(MEIPASS_PATH, "libs")
+    USE_PIP=False
 else:
     # Running from source
     BASE_PATH = os.path.dirname(os.path.abspath(__file__))
     MEIPASS_PATH = BASE_PATH
-LIB_PATH = os.path.join(BASE_PATH, "libs")
-sys.path.insert(0, LIB_PATH)
+    # LIB_PATH = os.path.join(BASE_PATH, "libs")
+    USE_PIP=True
+
+# sys.path.append(LIB_PATH)
+# # Add all subfolders inside libs/ to sys.path
+# if os.path.isdir(LIB_PATH):
+#     for entry in os.listdir(LIB_PATH):
+#         entry_path = os.path.join(LIB_PATH, entry)
+#         if os.path.isdir(entry_path):
+#             sys.path.append(entry_path)
+
+import requests
+import tarfile
+import zipfile
+
+def download_from_pypi(package, libs_folder="libs"):
+    # 1. Query PyPI metadata
+    meta = requests.get(f"https://pypi.org/pypi/{package}/json").json()
+
+    # 2. Find the source distribution (sdist)
+    sdist = None
+    for file in meta["urls"]:
+        if file["packagetype"] == "sdist":
+            sdist = file["url"]
+            break
+
+    if not sdist:
+        raise RuntimeError("No source distribution found")
+
+    # 3. Download the sdist
+    os.makedirs(libs_folder, exist_ok=True)
+    filename = os.path.join(libs_folder, sdist.split("/")[-1])
+
+    with requests.get(sdist, stream=True) as r:
+        r.raise_for_status()
+        with open(filename, "wb") as f:
+            for chunk in r.iter_content(8192):
+                f.write(chunk)
+
+    # 4. Extract it
+    if filename.endswith(".zip"):
+        with zipfile.ZipFile(filename, "r") as z:
+            z.extractall(libs_folder)
+    elif filename.endswith(".tar.gz"):
+        with tarfile.open(filename, "r:gz") as t:
+            t.extractall(libs_folder)
+
+    # 5. Cleanup
+    os.remove(filename)
+
+    return True
 
 def is_libs_empty():
-    libs_path = os.path.join(BASE_PATH, "libs")
+    libs_path = MEIPASS_PATH # LIB_PATH
     # Folder doesn't exist → treat as empty
     if not os.path.isdir(libs_path):
         return True
@@ -41,15 +92,45 @@ def is_libs_empty():
     return len(os.listdir(libs_path)) == 0
 
 def missing_required_modules():
-    libs_path = os.path.join(BASE_PATH, "libs")
+    libs_path = MEIPASS_PATH # LIB_PATH
     required = ["pytubefix", "yt_dlp"]
     missing = []
+    if not os.path.isdir(libs_path):
+        return required[:]  # libs folder doesn't exist yet
     for module in required:
-        module_path = os.path.join(libs_path, module)
-        if not os.path.exists(module_path):
+        found = False
+        # Check all folders inside libs/
+        for entry in os.listdir(libs_path):
+            entry_path = os.path.join(libs_path, entry)
+            # Only consider directories
+            if os.path.isdir(entry_path):
+                # Match exact name OR name starting with module name
+                if entry == module or entry.startswith(module + "-"):
+                    found = True
+                    break
+        if not found:
             missing.append(module)
-
     return missing
+
+def restart_app():
+    """Restart the current application."""
+    try:
+        if getattr(sys, 'frozen', False):
+            # Running as a PyInstaller EXE
+            python_exec = sys.executable
+        else:
+            # Running from source
+            python_exec = sys.executable
+            script_path = os.path.abspath(__file__)
+            subprocess.Popen([python_exec, script_path])
+            os._exit(0)
+
+        # Relaunch the EXE
+        subprocess.Popen([python_exec])
+        os._exit(0)
+
+    except Exception as e:
+        print(f"Failed to restart: {e}")
 
 import logging
 import threading
@@ -61,7 +142,6 @@ import subprocess
 from importlib.metadata import version
 from importlib.util import find_spec
 import yaml
-import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 import class_file_dialogs
@@ -114,6 +194,56 @@ def ask_user_install_missing(msg):
 
     return reply == QMessageBox.Yes
 
+def get_dependencies(package):
+    meta = requests.get(f"https://pypi.org/pypi/{package}/json").json()
+    requires = meta["info"].get("requires_dist", [])
+    deps = []
+    for r in requires:
+        dep = r.split(";")[0].strip().split(" ")[0]
+        deps.append(dep)
+    return deps
+
+def _update_library(library_name):
+    try:
+        libs_path = MEIPASS_PATH #LIB_PATH
+        os.makedirs(libs_path, exist_ok=True)
+        log.info(f"Installing/updating {library_name} into {libs_path}...")
+        # Use the same Python interpreter running the EXE
+        if USE_PIP: 
+            python_exec = sys.executable
+            result = subprocess.run(
+                [
+                    python_exec, "-m", "pip",
+                    "install", "--upgrade",
+                    library_name,
+                    #"-t", libs_path
+                ],
+                capture_output=True,
+                text=True
+            )
+            if result.returncode != 0:
+                log.error(f"pip failed for {library_name}: {result.stderr}")
+                return False
+            log.info(f"{library_name} updated successfully.")
+            return True
+        else:
+            log.warning("DOES NOT WORK With LIBRARIES WITH WHEELS DLL's or Binaries, only with Pure Python libraries!")
+            log.warning("Can't update a bundled library, please compile from source!")
+            log.info(f"BASE_PATH = {BASE_PATH}")
+            log.info(f"MEIPASS_PATH = {MEIPASS_PATH}")
+            #log.debug("LIB_PATH =", LIB_PATH)
+            return False
+            log.info(f"{library_name} downloading from PYPI!")
+            download_from_pypi(library_name,libs_path)
+            deps = get_dependencies(library_name)
+            for dep in deps:
+                log.info(f"Dependency for {library_name}: {dep} downloading from PYPI!")
+                download_from_pypi(dep, libs_path)
+        
+    except Exception as e:
+        log.error(f"Failed to update {library_name}: {e}")
+    return False
+
 def check_libs_on_startup():
     missing = missing_required_modules()
     if missing:
@@ -126,35 +256,19 @@ def check_libs_on_startup():
         log.info(msg)
         if ask_user_install_missing(msg):
             for m in missing:
-                _update_library(m)
+                if not _update_library(m):
+                    sys.exit(1)
+            missing = missing_required_modules()
+            if len(missing)>0:
+                log.warning(":( Still missing the libraries!)")
+                sys.exit(1)
+            restart_app()
         else:
             sys.exit(0)
 
-def _update_library(library_name):
-    try:
-        libs_path = os.path.join(BASE_PATH, "libs")
-        os.makedirs(libs_path, exist_ok=True)
-        log.info(f"Installing/updating {library_name} into {libs_path}...")
-        # Use the same Python interpreter running the EXE
-        python_exec = sys.executable
-        result = subprocess.run(
-            [
-                python_exec, "-m", "pip",
-                "install", "--upgrade",
-                library_name,
-                "-t", libs_path
-            ],
-            capture_output=True,
-            text=True
-        )
-        if result.returncode != 0:
-            log.error(f"pip failed for {library_name}: {result.stderr}")
-            return
-        log.info(f"{library_name} updated successfully.")
-    except Exception as e:
-        log.error(f"Failed to update {library_name}: {e}")
+# check_libs_on_startup()
 
-check_libs_on_startup()
+
 
 import pytubefix
 import pytubefix.metadata
@@ -663,21 +777,12 @@ class UiMainWindowYt(yt_pytubefix_gui.Ui_MainWindow):
 
             if not self.a_dialog.send_question_yes_no_msgbox(f"Update {library_name}", msg):
                 return
-
-            log.info(f"Updating {library_name}...")
-            python_exec = sys.executable
-            result = subprocess.run(
-                [
-                    python_exec, "-m", "pip",
-                    "install", "--upgrade",
-                    library_name,
-                    "-t", libs_path
-                ],
-                capture_output=True,
-                text=True
-            )
-            log.info(f"{library_name} updated successfully.")
-
+            if _update_library(library_name):
+                if self.a_dialog.send_question_yes_no_msgbox("Restart...", "Restart for update to take effect?"):
+                    restart_app()
+            else: 
+                self.a_dialog.send_informative_msgbox("Sorry...","Can't update in a bundled executable! :(\n You need to rebuild the updated source.")
+            
         except Exception as e:
             log.error(f"Failed to update {library_name}: {e}")
     
