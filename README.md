@@ -10,6 +10,9 @@ It keeps your intent but reads smoother, more professional, and more user‑frie
 
 # 📥 yt_pytubefix GUI — Simple YouTube Downloader
 
+- Current Gui version: 1.1.33 Beta
+- Pytubefix actual version: 10.3.6 (updatable)
+
 ---
 
 # 🎉 Introduction
@@ -300,13 +303,7 @@ Then run:
 ./yt_pytubefix_main_Linux_V####
 ```
 
-Enjoy using the GUI.
-
----
-
-Absolutely — here’s an improved version of the configuration section that includes your clarification:  
-**users may add or omit fields**, and pytubefix will automatically match supported attributes for each function (`Youtube`, `Channel`, `List`, etc.).  
-This keeps things flexible while still warning users not to break the YAML structure.
+## **Enjoy using the GUI.**
 
 ---
 
@@ -390,10 +387,6 @@ However, pytubefix may ignore it automatically depending on the client and authe
 For advanced configuration, custom clients, or deeper authentication details, refer to the official pytubefix documentation:
 
 👉 https://github.com/JuanBindez/pytubefix
-
----
-
-Totally fair — no need to make it look like a corporate roadmap when it’s really just you building something cool in your spare time. Let’s keep it simple, honest, and human. Here’s a version that captures the spirit without pretending you’re a whole team.
 
 ---
 
