@@ -20,6 +20,11 @@ __pytubefix__ = "<a href=\"https://github.com/JuanBindez/pytubefix\">' Github fo
 
 
 import sys
+
+if "--version" in sys.argv: 
+    print(f"yt_pytubefix_main version {__version__}") 
+    sys.exit(0)
+    
 import os
 if getattr(sys, 'frozen', False):
     # Running as EXE

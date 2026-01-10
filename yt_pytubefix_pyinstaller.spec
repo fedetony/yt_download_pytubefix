@@ -1,5 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
-# run with:  pyinstaller --clean yt_pytubefix_pyinstaller.spec  --noconfirm
+#############################################################
+# Run with pyinstaller --clean yt_pytubefix_pyinstaller.spec
+# dist/
+#   yt_pytubefix_main_XXX_V#### <- your executable file in windows,linux or mac
+#   img/ <- add image folder
+#   config/ <-add config folder with yml and your potoken.json file if used
+#############################################################
 import os
 import sys
 import platform
@@ -13,11 +19,6 @@ elif system == "Linux":
     sys_txt = "_Linux"
 elif system == "Darwin":
     sys_txt = "_Mac"
-
-from PyInstaller.utils.win32.versioninfo import (
-    VSVersionInfo, FixedFileInfo, StringFileInfo,
-    StringTable, StringStruct, VarFileInfo, VarStruct,
-)
 
 # Determine project path safely
 if 'specfile' in globals():
@@ -39,103 +40,102 @@ numeric += [0] * (4 - len(numeric))
 
 sys_txt += "_V" + APP_VERSION.replace(".", "").replace(" ", "").strip()
 
-version_info = VSVersionInfo(
-    ffi=FixedFileInfo(
-        filevers=tuple(numeric),
-        prodvers=tuple(numeric),
-        mask=0x3f,
-        flags=0x0,
-        OS=0x40004,
-        fileType=0x1,
-        subtype=0x0,
-        date=(0, 0)
-    ),
-    kids=[
-        StringFileInfo([
-            StringTable(
-                '040904B0',
-                [
-                    StringStruct('CompanyName', 'YourName'),
-                    StringStruct('FileDescription', 'yt_pytubefix GUI'),
-                    StringStruct('FileVersion', APP_VERSION),
-                    StringStruct('InternalName', 'yt_pytubefix_main'),
-                    StringStruct('OriginalFilename', f'yt_pytubefix_main{sys_txt}.exe'),
-                    StringStruct('ProductName', 'yt_pytubefix GUI'),
-                    StringStruct('ProductVersion', APP_VERSION),
-                ]
-            )
-        ]),
-        VarFileInfo([VarStruct('Translation', [1033, 1200])])
-    ]
-)
-
-img_path = os.path.join(project_path, "img")
-
-# -------------------------
-# THE ONLY VALID ANALYSIS
-# -------------------------
-a = Analysis(
-    [main_script],
-    pathex=[project_path],
-    binaries=None,
-    datas=None,
-    hiddenimports=None,
-    hookspath=[],
-    hooksconfig={},
-    runtime_hooks=[],
-    excludes=[],
-    noarchive=False,
-)
-
-# after Analysis(...) and before PYZ
+# Set data and metadata
 from PyInstaller.utils.hooks import copy_metadata
-import glob, os, sys
 
-def add_metadata_safe(pkg_name):
-    meta = []
-    try:
-        meta = copy_metadata(pkg_name)
-    except Exception:
-        meta = []
-
-    fixed = []
-    for entry in meta:
-        # entry may be (dest, src, type) or (name, src)
-        if len(entry) == 3:
-            fixed.append(entry)
-        elif len(entry) == 2:
-            name, src = entry
-            dest = os.path.basename(name)
-            fixed.append((dest, src, 'DATA'))
-        else:
-            raise RuntimeError("Unexpected metadata entry: %r" % (entry,))
-
-    # fallback: find dist-info directly in the venv site-packages
-    if not fixed:
-        if sys.platform == 'win32':
-            site_pkgs = os.path.join(sys.prefix, 'Lib', 'site-packages')
-        else:
-            site_pkgs = os.path.join(sys.prefix, 'lib', f'python{sys.version_info.major}.{sys.version_info.minor}', 'site-packages')
-        matches = glob.glob(os.path.join(site_pkgs, f'{pkg_name}-*.dist-info'))
-        if not matches:
-            # package not installed in this venv; skip silently
-            return
-        dist_info_path = matches[0]
-        fixed.append((os.path.basename(dist_info_path), dist_info_path, 'DATA'))
-
-    a.datas += fixed
-
-# call add_metadata_safe for the packages you need
-for pkg in [
+packages = [
     'imageio', 'imageio_ffmpeg', 'moviepy', 'numpy',
     'requests', 'urllib3', 'certifi',
     'websockets', 'aiohttp', 'async_timeout',
     'multidict', 'yarl', 'frozenlist',
     'pytubefix', 'yt_dlp', 'pillow',
     'PyQt5', 'selenium'
-]:
-    add_metadata_safe(pkg)
+]
 
+img_path = os.path.join(project_path, "img")
+
+datas = []
+
+# Add your entire img folder
+# datas.append((img_path, "img"))
+for f in os.listdir(img_path):
+    datas.append((os.path.join(img_path, f), "img"))
+
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+
+datas += collect_data_files("PyQt5")
+datas += collect_data_files("moviepy")
+datas += collect_data_files("PIL")
+datas += collect_data_files("imageio")
+datas += collect_data_files("certifi")
+
+# hidden imports
+hiddenimports = collect_submodules("PyQt5")
+hiddenimports += collect_submodules("aiohttp") + collect_submodules("websockets")
+hiddenimports += collect_submodules("moviepy")
+
+
+# Add packages
+for pkg in packages:
+    try:
+        datas += copy_metadata(pkg)
+    except Exception:
+        pass
+
+project_final_name=f'yt_pytubefix_main{sys_txt}'
+
+# Versioning Windows
+if system == "Windows":
+    from PyInstaller.utils.win32.versioninfo import (
+        VSVersionInfo, FixedFileInfo, StringFileInfo,
+        StringTable, StringStruct, VarFileInfo, VarStruct,
+    )
+
+    version_info = VSVersionInfo(
+        ffi=FixedFileInfo(
+            filevers=tuple(numeric),
+            prodvers=tuple(numeric),
+            mask=0x3f,
+            flags=0x0,
+            OS=0x40004,
+            fileType=0x1,
+            subtype=0x0,
+            date=(0, 0)
+        ),
+        kids=[
+            StringFileInfo([
+                StringTable(
+                    '040904B0',
+                    [
+                        StringStruct('CompanyName', 'YourName'),
+                        StringStruct('FileDescription', 'yt_pytubefix GUI'),
+                        StringStruct('FileVersion', APP_VERSION),
+                        StringStruct('InternalName', 'yt_pytubefix_main'),
+                        StringStruct('OriginalFilename', f'yt_pytubefix_main{sys_txt}.exe'),
+                        StringStruct('ProductName', 'yt_pytubefix GUI'),
+                        StringStruct('ProductVersion', APP_VERSION),
+                    ]
+                )
+            ]),
+            VarFileInfo([VarStruct('Translation', [1033, 1200])])
+        ]
+    )
+else: 
+    version_info = None
+
+a = Analysis(
+    [main_script],
+    pathex=[project_path], # pathex=[], 
+    binaries=[],
+    datas=datas,
+    hiddenimports=hiddenimports,
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    noarchive=False,
+    optimize=0,
+)
 pyz = PYZ(a.pure)
 
 exe = EXE(
@@ -143,10 +143,20 @@ exe = EXE(
     a.scripts,
     a.binaries,
     a.datas,
-    name=f'yt_pytubefix_main{sys_txt}',
+    [],
+    name=project_final_name,
+    version=version_info, 
     debug=False,
+    bootloader_ignore_signals=False,
     strip=False,
     upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
     console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
     icon=os.path.join(img_path, "main_icon.ico"),
 )
