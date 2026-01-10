@@ -3,9 +3,6 @@
 ![Python Logo](https://github.com/fedetony/yt_download_pytubefix/blob/master/img/main_icon48.png "GUI pytubefix V1.0beta by FG")
  This is a simple GUI to download videos from yt using pytubefix, for latest state check [my github][wp] account. Please contribute with bug reports, or enhancements you would like to have.
 
-Here’s a polished, clearer, more inviting version of your description and feature list.  
-It keeps your intent but reads smoother, more professional, and more user‑friendly.
-
 ---
 
 # 📥 yt_pytubefix GUI — Simple YouTube Downloader
